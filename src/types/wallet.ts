@@ -33,7 +33,9 @@ export type TransactionType =
   | 'parking_payment'
   | 'violation_payment'
   | 'refund'
-  | 'adjustment';
+  | 'adjustment'
+  /** Verified ParkFlow points paid into the wallet. */
+  | 'reward';
 
 export type TransactionStatus = 'pending' | 'completed' | 'failed' | 'reversed';
 

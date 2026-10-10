@@ -2,6 +2,7 @@ import { View } from 'react-native';
 import {
   ArrowDownLeft,
   CircleParking,
+  Gift,
   RotateCcw,
   ScrollText,
   SlidersHorizontal,
@@ -21,6 +22,7 @@ const ICONS: Record<TransactionType, typeof CircleParking> = {
   violation_payment: ScrollText,
   refund: RotateCcw,
   adjustment: SlidersHorizontal,
+  reward: Gift,
 };
 
 export interface TransactionRowProps {

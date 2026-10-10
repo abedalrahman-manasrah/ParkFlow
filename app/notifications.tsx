@@ -1,17 +1,7 @@
 import { useMemo } from 'react';
 import { SectionList, View } from 'react-native';
+import { Bell } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import {
-  Bell,
-  BellRing,
-  CircleParking,
-  CircleCheck,
-  CircleAlert,
-  ScrollText,
-  Wallet as WalletIcon,
-  Gavel,
-  Timer,
-} from 'lucide-react-native';
 
 import {
   AppHeader,
@@ -32,31 +22,11 @@ import {
   useMarkNotificationRead,
   useNotifications,
 } from '@/hooks/useNotifications';
-import type { AppNotification, NotificationType } from '@/types';
+import type { AppNotification } from '@/types';
+import { ALERT_NOTIFICATION_TYPES, NOTIFICATION_ICONS } from '@/components/domain/notificationIcons';
 import { formatDayHeading, formatTime } from '@/utils/time';
 import { haptics } from '@/utils/haptics';
 
-const ICONS: Record<NotificationType, typeof Bell> = {
-  parking_started: CircleParking,
-  parking_reminder: BellRing,
-  parking_expiring: Timer,
-  parking_completed: CircleCheck,
-  low_balance: WalletIcon,
-  topup_success: WalletIcon,
-  payment_success: CircleCheck,
-  payment_failed: CircleAlert,
-  violation_issued: ScrollText,
-  appeal_updated: Gavel,
-  system: Bell,
-};
-
-/** Notices that need action get the alert tone; the rest stay neutral. */
-const ALERT_TYPES: NotificationType[] = [
-  'violation_issued',
-  'payment_failed',
-  'low_balance',
-  'parking_expiring',
-];
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -153,9 +123,9 @@ export default function NotificationsScreen() {
             </AppText>
           )}
           renderItem={({ item }) => {
-            const Icon = ICONS[item.type];
+            const Icon = NOTIFICATION_ICONS[item.type];
             const unread = !item.readAt;
-            const alert = ALERT_TYPES.includes(item.type);
+            const alert = ALERT_NOTIFICATION_TYPES.includes(item.type);
 
             return (
               <PressableScale

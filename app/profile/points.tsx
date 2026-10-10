@@ -1,4 +1,5 @@
 import { View } from 'react-native';
+import { Gift } from 'lucide-react-native';
 
 import {
   AppHeader,
@@ -14,10 +15,12 @@ import {
 } from '@/components/ui';
 import { useTheme } from '@/theme/ThemeProvider';
 import { spacing } from '@/theme/spacing';
+import { radius } from '@/theme/radius';
 import { useLocale } from '@/hooks/useLocale';
 import { useTrust } from '@/hooks/useCommunity';
 import type { TrustTier } from '@/types';
 import { formatDateTime } from '@/utils/time';
+import { formatMoney } from '@/utils/money';
 
 const TIER_TONE = { bronze: 'warning', silver: 'neutral', gold: 'success', platinum: 'brand' } as const;
 const STATE_TONE = { pending: 'info', verified: 'success', revoked: 'neutral' } as const;
@@ -106,6 +109,37 @@ export default function PointsScreen() {
           ) : null}
         </Card>
 
+        {trust.rewards ? (
+          <Card tone="brand" padding="lg" style={{ flexDirection: row, alignItems: 'center', gap: spacing.md }}>
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: radius.md,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: colors.surface,
+              }}
+            >
+              <Gift size={22} color={colors.brand} strokeWidth={2.2} />
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <AppText variant="title">{t('points.rewards')}</AppText>
+              <AppText variant="bodySm" color="textSecondary">
+                {t('points.rewardsRate', { amount: formatMoney(trust.rewards.perPointMinor) })}
+              </AppText>
+            </View>
+            <View style={{ alignItems: alignEnd, gap: 2 }}>
+              <AppText variant="caption" color="textTertiary">
+                {t('points.rewardsEarned')}
+              </AppText>
+              <AppText variant="titleLg" color="successText" numeric>
+                {formatMoney(trust.rewards.earnedMinor)}
+              </AppText>
+            </View>
+          </Card>
+        ) : null}
+
         <View>
           <SectionHeader title={t('points.factors')} />
           <Card padding="lg" style={{ paddingVertical: spacing.xs }}>
@@ -140,6 +174,11 @@ export default function PointsScreen() {
                 • {t(key)}
               </AppText>
             ))}
+            {trust.rewards ? (
+              <AppText variant="bodySm" color="textSecondary">
+                • {t('points.earn.incident', { points: trust.rewards.incidentReportPoints })}
+              </AppText>
+            ) : null}
           </Card>
         </View>
 

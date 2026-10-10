@@ -54,7 +54,7 @@ export interface CrowdAvailability {
   minutesSinceReport: number;
 }
 
-export type PointsReason = 'zone_report' | 'road_report';
+export type PointsReason = 'zone_report' | 'road_report' | 'incident_report';
 
 export interface PointsEntry {
   id: ID;
@@ -94,6 +94,15 @@ export interface TrustSummary {
   pendingPoints: number;
   factors: TrustFactor[];
   recent: PointsEntry[];
+  /** How points turn into wallet money. Absent from the offline mock. */
+  rewards?: {
+    /** Wallet credit per verified point, in minor units. */
+    perPointMinor: number;
+    /** Points for each new map incident report, whatever its type. */
+    incidentReportPoints: number;
+    /** Everything paid out so far, in minor units. */
+    earnedMinor: number;
+  };
 }
 
 export interface Landmark {

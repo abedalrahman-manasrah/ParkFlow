@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ArrowDownLeft,
   CircleParking,
+  Gift,
   RotateCcw,
   ScrollText,
   SlidersHorizontal,
@@ -36,6 +37,7 @@ const ICONS: Record<TransactionType, typeof CircleParking> = {
   violation_payment: ScrollText,
   refund: RotateCcw,
   adjustment: SlidersHorizontal,
+  reward: Gift,
 };
 
 export default function TransactionDetailScreen() {

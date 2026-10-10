@@ -3,6 +3,7 @@ import type { CheckpointStatus, Availability } from '@prisma/client';
 import { aggregate } from '../reports/aggregation';
 import { assert,requireValue } from '../../utils/errors';
 import { event } from '../../realtime/outbox';
+import { settlePoints } from '../trust/rewards';
 export async function checkpoints(){const rows=await db.roadCheckpoint.findMany({where:{active:true},include:{reports:{where:{hidden:false,reportedAt:{gte:new Date(Date.now()-21600000)}}}}});return rows.map(c=>({...c,reports:undefined,location:{latitude:c.latitude,longitude:c.longitude},...aggregate(c.reports,90,360),status:aggregate(c.reports,90,360).status??'open'}));}
 export async function feed(limit=25){return (await db.checkpointReport.findMany({where:{hidden:false},take:limit,orderBy:{reportedAt:'desc'},include:{checkpoint:true}})).map(r=>({...r,checkpoint:undefined,checkpointNameAr:r.checkpoint.nameAr,checkpointNameEn:r.checkpoint.nameEn}));}
 async function reward(tx:Tx,userId:string,placeId:string,refId:string,reason:'road_report'|'zone_report'){
@@ -19,4 +20,6 @@ export async function zoneReports(zoneId:string){return db.parkingReport.findMan
 export async function verifyPoints(now=new Date()){const pending=await db.pointsEntry.findMany({where:{state:'pending',createdAt:{lte:new Date(now.getTime()-900000)}},take:500});for(const entry of pending){await atomic(async tx=>{const end=new Date(entry.createdAt.getTime()+900000);let conflicting=false;
  if(entry.roadReportId){const original=await tx.checkpointReport.findUniqueOrThrow({where:{id:entry.roadReportId}});conflicting=original.hidden||!!await tx.checkpointReport.findFirst({where:{checkpointId:entry.placeId,userId:{not:entry.userId},hidden:false,status:{not:original.status},reportedAt:{gt:entry.createdAt,lte:end}}});}
  else if(entry.parkingReportId){const original=await tx.parkingReport.findUniqueOrThrow({where:{id:entry.parkingReportId}});conflicting=!!await tx.parkingReport.findFirst({where:{zoneId:entry.placeId,userId:{not:entry.userId},availability:{not:original.availability},reportedAt:{gt:entry.createdAt,lte:end}}});}
- await tx.pointsEntry.updateMany({where:{id:entry.id,state:'pending'},data:{state:conflicting?'revoked':'verified',verifiedAt:now}});await event(tx,'trust.updated',{},entry.userId);});}}
+ // A map incident stands unless other drivers said it was not there.
+ else if(entry.incidentReportId){const original=await tx.roadReport.findUniqueOrThrow({where:{id:entry.incidentReportId}});conflicting=original.status==='disputed'||original.status==='resolved'||original.rejectionCount>original.confirmationCount;}
+ await settlePoints(tx,entry,!conflicting,now);});}}

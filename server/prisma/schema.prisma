@@ -47,6 +47,7 @@ enum TransactionType {
   violation_payment
   refund
   adjustment
+  reward
 }
 
 enum TransactionStatus {
@@ -700,6 +701,7 @@ model RoadReport {
   updatedAt         DateTime           @updatedAt
   expiresAt         DateTime
   votes             RoadReportVote[]
+  points            PointsEntry[]
 
   @@index([status, expiresAt])
   @@index([latitude, longitude])
@@ -762,11 +764,15 @@ model PointsEntry {
   roadReport      CheckpointReport? @relation(fields: [roadReportId], references: [id])
   parkingReportId String?
   parkingReport   ParkingReport? @relation(fields: [parkingReportId], references: [id])
+  /// A map incident (accident, closure, hazard…), separate from checkpoint reports above.
+  incidentReportId String?
+  incidentReport  RoadReport?    @relation(fields: [incidentReportId], references: [id])
   createdAt       DateTime       @default(now())
   verifiedAt      DateTime?
 
   @@index([userId, placeId, createdAt])
   @@index([state, createdAt])
+  @@index([incidentReportId])
   @@map("points_ledger")
 }
 

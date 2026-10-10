@@ -20,6 +20,7 @@ import { useBackendSync } from '@/hooks/useBackendSync';
 import { usePreferencesStore } from '@/store/preferencesStore';
 import { isAppError } from '@/utils/errors';
 import { WebAppShell } from '@/components/layout/WebAppShell';
+import { NotificationBanner } from '@/components/navigation/NotificationBanner';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -138,6 +139,7 @@ function AppShell() {
   return (
     <WebAppShell>
       {ready ? <RootNavigator /> : <View style={{ flex: 1, backgroundColor: colors.deep }} />}
+      {ready ? <NotificationBanner /> : null}
     </WebAppShell>
   );
 }
