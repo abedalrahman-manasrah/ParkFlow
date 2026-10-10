@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { BadgePercent, BatteryCharging, CircleParking, Landmark, LifeBuoy, TriangleAlert, Wrench } from 'lucide-react-native';
+import { Accessibility, BadgePercent, BatteryCharging, CircleParking, Landmark, LifeBuoy, TriangleAlert, Wrench } from 'lucide-react-native';
 import { Switch, View } from 'react-native';
 import { AppButton, AppText, BottomSheet, PressableScale } from '@/components/ui';
 import { useLocale } from '@/hooks/useLocale';
@@ -35,11 +35,13 @@ export function MapLayersSheet({ visible, onClose }: { visible: boolean; onClose
   const primaryCategory = useMapLayersStore((state) => state.primaryCategory);
   const roadReportsEnabled = useMapLayersStore((state) => state.roadReportsEnabled);
   const businessOffersEnabled = useMapLayersStore((state) => state.businessOffersEnabled);
+  const accessibleParkingOnly = useMapLayersStore((state) => state.accessibleParkingOnly);
   const carServiceCategory = useMapLayersStore((state) => state.carServiceCategory);
   const tourismPlaceCategories = useMapLayersStore((state) => state.tourismPlaceCategories);
   const setPrimaryCategory = useMapLayersStore((state) => state.setPrimaryCategory);
   const setRoadReportsEnabled = useMapLayersStore((state) => state.setRoadReportsEnabled);
   const setBusinessOffersEnabled = useMapLayersStore((state) => state.setBusinessOffersEnabled);
+  const setAccessibleParkingOnly = useMapLayersStore((state) => state.setAccessibleParkingOnly);
   const setCarServiceCategory = useMapLayersStore((state) => state.setCarServiceCategory);
   const toggleTourismPlaceCategory = useMapLayersStore((state) => state.toggleTourismPlaceCategory);
   const resetLayers = useMapLayersStore((state) => state.resetLayers);
@@ -155,6 +157,9 @@ export function MapLayersSheet({ visible, onClose }: { visible: boolean; onClose
           <AppText variant="label" color="textSecondary">{t('mapLayers.overlays')}</AppText>
           {overlayRow(t('mapLayers.roadReports'), <TriangleAlert size={18} color={colors.warningText} />, roadReportsEnabled, setRoadReportsEnabled, true)}
           {overlayRow(t('mapLayers.businessOffers'), <BadgePercent size={18} color={colors.textTertiary} />, businessOffersEnabled, setBusinessOffersEnabled, BUSINESS_OFFERS_AVAILABLE)}
+          {primaryCategory === 'parking'
+            ? overlayRow(t('mapLayers.accessibleParking'), <Accessibility size={18} color={colors.info} />, accessibleParkingOnly, setAccessibleParkingOnly, true)
+            : null}
         </View>
 
         <AppButton label={t('common.close')} onPress={onClose} variant="secondary" size="sm" />

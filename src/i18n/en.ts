@@ -234,6 +234,8 @@ export const en = {
   'zone.prototypeData': 'Prototype hours and availability — verify on site.',
   'zone.reportFailed': 'Could not send your report. Please try again.',
   'zone.restrictedAccess': 'Restricted access',
+  'zone.accessibleSpots': 'Accessible spots: {count}',
+  'zone.accessibleShort': 'Accessible',
 
   'parking.details': 'Parking Details',
   'parking.vehicle': 'Vehicle',
@@ -655,6 +657,7 @@ export const en = {
   'mapLayers.primary.roadside_help': 'Roadside Help',
   'mapLayers.roadReports': 'Road Reports',
   'mapLayers.businessOffers': 'Business Offers',
+  'mapLayers.accessibleParking': 'Accessible parking only',
   'mapLayers.comingSoon': 'Coming soon',
   'mapLayers.reset': 'Reset',
   'ev.station': "Charging station",

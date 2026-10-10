@@ -1,5 +1,5 @@
 import { View } from 'react-native';
-import { CircleParking, Building2 } from 'lucide-react-native';
+import { Accessibility, CircleParking, Building2 } from 'lucide-react-native';
 import { AppText } from '@/components/ui/AppText';
 import { useTheme } from '@/theme/ThemeProvider';
 import type { ColorScheme } from '@/theme/colors';
@@ -55,8 +55,30 @@ export function ZoneMarker({ zone, selected = false }: ZoneMarkerProps) {
   // Private/garage stock reads as blue per the product's status language.
   const accent = isGarage ? colors.info : statusColor;
 
+  const hasAccessibleSpots = (zone.accessibleSpots ?? 0) > 0;
+
   return (
     <View style={{ alignItems: 'center' }}>
+      {hasAccessibleSpots ? (
+        <View
+          style={{
+            position: 'absolute',
+            top: -6,
+            end: -6,
+            zIndex: 1,
+            width: 18,
+            height: 18,
+            borderRadius: 9,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.info,
+            borderWidth: 1.5,
+            borderColor: colors.surface,
+          }}
+        >
+          <Accessibility size={11} color={colors.textOnColor} strokeWidth={2.6} />
+        </View>
+      ) : null}
       <View
         style={[
           {

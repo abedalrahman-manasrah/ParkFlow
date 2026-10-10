@@ -301,6 +301,7 @@ export const ar: Partial<Translations> = {
   'mapLayers.primary.roadside_help': 'المساعدة على الطريق',
   'mapLayers.roadReports': 'بلاغات الطرق',
   'mapLayers.businessOffers': 'عروض الأعمال',
+  'mapLayers.accessibleParking': 'مواقف لذوي الاحتياجات الخاصة فقط',
   'mapLayers.comingSoon': 'قريباً',
   'mapLayers.reset': 'إعادة ضبط',
   'onboarding.feature1': 'اعثر على موقف قريب منك',
@@ -438,6 +439,8 @@ export const ar: Partial<Translations> = {
   'zone.prototypeData': 'ساعات العمل والتوفر تجريبية — يرجى التحقق في الموقع.',
   'zone.reportFailed': 'تعذر إرسال البلاغ. حاول مرة أخرى.',
   'zone.restrictedAccess': 'دخول مقيّد',
+  'zone.accessibleSpots': 'مواقف لذوي الاحتياجات الخاصة: {count}',
+  'zone.accessibleShort': 'ذوي احتياجات خاصة',
 
   'parking.details': 'تفاصيل الوقوف',
   'parking.vehicle': 'المركبة',

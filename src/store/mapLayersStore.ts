@@ -15,6 +15,7 @@ interface PersistedMapLayers {
   primaryCategory: PrimaryMapCategory;
   roadReportsEnabled: boolean;
   businessOffersEnabled: boolean;
+  accessibleParkingOnly: boolean;
   carServiceCategory: CarServiceCategory;
   tourismPlaceCategories: TourismPlaceCategory[];
 }
@@ -23,6 +24,7 @@ interface MapLayersState extends PersistedMapLayers {
   setPrimaryCategory: (category: PrimaryMapCategory) => void;
   setRoadReportsEnabled: (enabled: boolean) => void;
   setBusinessOffersEnabled: (enabled: boolean) => void;
+  setAccessibleParkingOnly: (enabled: boolean) => void;
   setCarServiceCategory: (category: CarServiceCategory) => void;
   toggleTourismPlaceCategory: (category: TourismPlaceCategory) => void;
   resetLayers: () => void;
@@ -32,6 +34,7 @@ const defaults: PersistedMapLayers = {
   primaryCategory: 'parking',
   roadReportsEnabled: true,
   businessOffersEnabled: false,
+  accessibleParkingOnly: false,
   carServiceCategory: 'car_wash',
   tourismPlaceCategories: ['historic_landmark'],
 };
@@ -47,6 +50,7 @@ export const useMapLayersStore = create<MapLayersState>()(
       setBusinessOffersEnabled: (businessOffersEnabled) => {
         if (BUSINESS_OFFERS_AVAILABLE) set({ businessOffersEnabled });
       },
+      setAccessibleParkingOnly: (accessibleParkingOnly) => set({ accessibleParkingOnly }),
       setCarServiceCategory: (carServiceCategory) => set({ carServiceCategory }),
       toggleTourismPlaceCategory: (category) => set({ tourismPlaceCategories: [category] }),
       resetLayers: () => set(defaults),
@@ -54,10 +58,11 @@ export const useMapLayersStore = create<MapLayersState>()(
     {
       name: STORAGE_KEYS.mapLayers,
       storage: createJSONStorage(() => appStorage),
-      partialize: ({ primaryCategory, roadReportsEnabled, businessOffersEnabled, carServiceCategory, tourismPlaceCategories }) => ({
+      partialize: ({ primaryCategory, roadReportsEnabled, businessOffersEnabled, accessibleParkingOnly, carServiceCategory, tourismPlaceCategories }) => ({
         primaryCategory,
         roadReportsEnabled,
         businessOffersEnabled,
+        accessibleParkingOnly,
         carServiceCategory,
         tourismPlaceCategories,
       }),
@@ -75,6 +80,9 @@ export const useMapLayersStore = create<MapLayersState>()(
             ? stored.roadReportsEnabled
             : defaults.roadReportsEnabled,
           businessOffersEnabled: BUSINESS_OFFERS_AVAILABLE && stored.businessOffersEnabled === true,
+          accessibleParkingOnly: typeof stored.accessibleParkingOnly === 'boolean'
+            ? stored.accessibleParkingOnly
+            : defaults.accessibleParkingOnly,
           carServiceCategory: isCarServiceCategory(stored.carServiceCategory)
             ? stored.carServiceCategory
             : defaults.carServiceCategory,

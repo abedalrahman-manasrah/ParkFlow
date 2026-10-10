@@ -1,4 +1,4 @@
-import { CircleParking } from 'lucide-react-native';
+import { Accessibility, CircleParking } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText, PressableScale } from '@/components/ui';
@@ -50,17 +50,38 @@ export function CompactZoneCard({ item, onPress }: { item: NearbyZone; onPress: 
         borderColor: colors.border,
       }}
     >
-      <View
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: radius.md,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: colors.brandSofter,
-        }}
-      >
-        <CircleParking size={18} color={colors.brand} strokeWidth={2} />
+      <View>
+        <View
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: radius.md,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.brandSofter,
+          }}
+        >
+          <CircleParking size={18} color={colors.brand} strokeWidth={2} />
+        </View>
+        {zone.accessibleSpots ? (
+          <View
+            style={{
+              position: 'absolute',
+              top: -4,
+              end: -4,
+              width: 16,
+              height: 16,
+              borderRadius: 8,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: colors.info,
+              borderWidth: 1.5,
+              borderColor: colors.surface,
+            }}
+          >
+            <Accessibility size={9} color={colors.textOnColor} strokeWidth={3} />
+          </View>
+        ) : null}
       </View>
 
       <View style={{ flex: 1, minWidth: 0, gap: spacing.xs }}>

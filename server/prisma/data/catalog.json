@@ -312,7 +312,8 @@
         "gps",
         "qr"
       ],
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "accessibleSpots": 3
     },
     {
       "id": "zone_plaza",
@@ -387,7 +388,8 @@
         "qr",
         "gps"
       ],
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "accessibleSpots": 2
     },
     {
       "id": "zone_balou",
@@ -550,7 +552,8 @@
         "qr",
         "zone_code"
       ],
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "accessibleSpots": 1
     },
     {
       "id": "zone_masyoun",
@@ -790,9 +793,8 @@
         "zone_code"
       ],
       "updatedAt": "2026-01-01T00:00:00.000Z"
-    }
-    ,
-  {
+    },
+    {
       "id": "rml_manara_municipal_complex",
       "ownership": "municipal",
       "parkingAllowed": true,
@@ -869,7 +871,8 @@
         "qr",
         "zone_code"
       ],
-      "updatedAt": "2026-09-27T00:00:00.000Z"
+      "updatedAt": "2026-09-27T00:00:00.000Z",
+      "accessibleSpots": 2
     },
     {
       "id": "rml_al_bireh_municipal_complex",
@@ -1322,7 +1325,8 @@
         "gps",
         "manual"
       ],
-      "updatedAt": "2026-09-27T00:00:00.000Z"
+      "updatedAt": "2026-09-27T00:00:00.000Z",
+      "accessibleSpots": 2
     },
     {
       "id": "rml_rukab_east_garage",
@@ -1621,7 +1625,8 @@
         "gps",
         "manual"
       ],
-      "updatedAt": "2026-09-27T00:00:00.000Z"
+      "updatedAt": "2026-09-27T00:00:00.000Z",
+      "accessibleSpots": 2
     },
     {
       "id": "rml_north_irsal_garage",

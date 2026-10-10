@@ -228,6 +228,7 @@ export default function MapScreen() {
   useEffect(() => { if (!evActive) setEvFiltersOpen(false); }, [evActive]);
   const roadReportsEnabled = useMapLayersStore((state) => state.roadReportsEnabled);
   const businessOffersEnabled = useMapLayersStore((state) => state.businessOffersEnabled);
+  const accessibleParkingOnly = useMapLayersStore((state) => state.accessibleParkingOnly);
   const enabledLayerCount = 1 + Number(roadReportsEnabled) + Number(businessOffersEnabled);
 
   const { vehicles, selected, select } = useSelectedVehicle();
@@ -276,9 +277,10 @@ export default function MapScreen() {
   const nearbyZones = useMemo<NearbyZone[]>(
     () =>
       zones
+        .filter((zone) => !accessibleParkingOnly || (zone.accessibleSpots ?? 0) > 0)
         .map((zone) => ({ zone, distanceMeters: distanceMeters(nearbyOrigin, zone.location) }))
         .sort((a, b) => a.distanceMeters - b.distanceMeters),
-    [zones, nearbyOrigin],
+    [zones, nearbyOrigin, accessibleParkingOnly],
   );
   const mapZones = useMemo(
     () => nearbyZones.filter(({ zone }) => !ramallahParkingZoneIds.has(zone.id)),

@@ -68,6 +68,8 @@ export interface ParkingZone {
   accessRestrictionAr?: string;
   /** False for facilities that are visible/routable but not open to normal public parking. */
   parkingAllowed?: boolean;
+  /** Reserved spaces for drivers with a disability permit — 0 when none are marked. */
+  accessibleSpots?: number;
   /** Marks temporary prototype metadata that must be verified before production use. */
   prototypeData?: boolean;
   supportedEntryMethods: ParkingEntryMethod[];
