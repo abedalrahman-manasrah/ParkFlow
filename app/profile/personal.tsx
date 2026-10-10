@@ -9,7 +9,6 @@ import {
   Avatar,
   Card,
   DetailRow,
-  Divider,
   InlineNotice,
   Screen,
   TextField,
@@ -65,10 +64,6 @@ export default function PersonalInfoScreen() {
           />
 
           <DetailRow label={t('profile.email')} value={user?.email ?? undefined} />
-        </Card>
-
-        <Card padding="lg" style={{ gap: spacing.md }}>
-          <Divider />
           <DetailRow
             label={t('profile.memberSince')}
             value={user ? formatDate(user.createdAt, dateLocale) : '—'}

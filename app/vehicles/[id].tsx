@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Car, Truck, Bike, CarTaxiFront, ScrollText, BadgeCheck, Trash2 } from 'lucide-react-native';
+import { Car, Truck, Bike, CarTaxiFront, ScrollText, BadgeCheck, Trash2, ShieldAlert } from 'lucide-react-native';
 
 import {
   AppButton,
@@ -39,6 +39,7 @@ import type { VehicleType } from '@/types';
 import { formatDate, formatDuration, formatTime, secondsBetween } from '@/utils/time';
 import { errorMessage } from '@/utils/errors';
 import { haptics } from '@/utils/haptics';
+import { isPlateOnlyName } from '@/utils/plate';
 
 const TYPE_ICONS: Record<VehicleType, typeof Car> = {
   private: Car,
@@ -98,6 +99,8 @@ export default function VehicleDetailScreen() {
   }
 
   const Icon = TYPE_ICONS[vehicle.type];
+  // Without a nickname the name is just the plate, which the badge already shows.
+  const sameAsPlate = isPlateOnlyName(vehicle.displayName, vehicle.plateNumber);
 
   const handleRemove = () => {
     unlink.mutate(vehicle.id, {
@@ -112,10 +115,22 @@ export default function VehicleDetailScreen() {
 
   return (
     <Screen>
-      <AppHeader title={t('vehicle.details')} />
+      <AppHeader
+        title={t('vehicle.details')}
+        trailing={
+          <AppButton
+            label={t('warning.entry')}
+            size="sm"
+            variant="secondary"
+            fullWidth={false}
+            style={{ alignSelf: 'center' }}
+            icon={<ShieldAlert size={16} color={colors.text} strokeWidth={2.2} />}
+            onPress={() => router.push({ pathname: '/vehicles/warning-check', params: { vehicleId: id } })}
+          />
+        }
+      />
 
       <View style={{ gap: spacing.xl }}>
-        <AppButton label={t('warning.entry')} variant="secondary" onPress={() => router.push({ pathname: '/vehicles/warning-check', params: { vehicleId: id } })} />
         {/* ---- Identity ------------------------------------------------ */}
         <Card padding="xl" style={{ alignItems: 'center', gap: spacing.md }}>
           <View
@@ -132,7 +147,7 @@ export default function VehicleDetailScreen() {
           </View>
 
           <AppText variant="h2" align="center">
-            {vehicle.displayName}
+            {sameAsPlate ? t(`vehicle.type.${vehicle.type}` as const) : vehicle.displayName}
           </AppText>
           <PlateBadge plateNumber={vehicle.plateNumber} size="lg" />
 
@@ -186,7 +201,9 @@ export default function VehicleDetailScreen() {
           <SectionHeader
             title={t('vehicle.parkingHistory')}
             subtitle={
-              history.length === 1 ? '1 session' : `${history.length} sessions`
+              history.length === 1
+                ? t('vehicle.sessionCountOne')
+                : t('vehicle.sessionCount', { count: history.length })
             }
           />
           <Card padding="lg" style={{ paddingVertical: spacing.xs }}>

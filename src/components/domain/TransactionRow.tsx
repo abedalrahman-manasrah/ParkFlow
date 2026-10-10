@@ -97,9 +97,9 @@ export function TransactionRow({ transaction, onPress }: TransactionRowProps) {
           style={failed ? { textDecorationLine: 'line-through' } : undefined}
         />
         {failed ? (
-          <StatusBadge label={t('activity.status.failed')} tone="danger" size="sm" style={{ alignSelf: alignEnd }} />
+          <StatusBadge label={t('activity.status.failed')} tone="danger" size="sm" />
         ) : transaction.status === 'pending' ? (
-          <StatusBadge label={t('activity.status.pending')} tone="warning" size="sm" style={{ alignSelf: alignEnd }} />
+          <StatusBadge label={t('activity.status.pending')} tone="warning" size="sm" />
         ) : null}
       </View>
     </PressableScale>

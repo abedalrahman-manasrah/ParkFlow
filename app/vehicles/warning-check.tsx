@@ -20,6 +20,7 @@ import { useWarningServiceNavigationStore } from '@/store/warningServiceNavigati
 import { checkVehicleWarnings, warningServices, MAX_WARNING_IMAGE_BYTES, WARNING_IMAGE_TYPES, type WarningResult, type WarningObservation } from '@/services/http/vehicleWarningService';
 import type { CarServiceBusiness, GeoPoint } from '@/types';
 import type { TranslationKey } from '@/i18n';
+import { isPlateOnlyName } from '@/utils/plate';
 
 const errorKeys: Record<string, TranslationKey> = {
   WARNING_INVALID_UPLOAD: 'warning.invalidFile', WARNING_NOT_CONFIGURED: 'warning.unavailable',
@@ -95,6 +96,7 @@ export default function WarningCheckScreen() {
   const { data: vehicles = [], isPending, isError, error: vehiclesError, refetch } = useVehicles();
   const [selectedId, setSelectedId] = useState(vehicleId);
   const selected = vehicles.find(v => v.id === selectedId) ?? vehicles.find(v => v.isDefault) ?? vehicles[0];
+  const selectedName = selected && isPlateOnlyName(selected.displayName, selected.plateNumber) ? t(`vehicle.type.${selected.type}`) : selected?.displayName;
   const [selector, setSelector] = useState(false);
   const [image, setImage] = useState<ImagePicker.ImagePickerAsset>();
   const [result, setResult] = useState<WarningResult>();
@@ -168,7 +170,7 @@ export default function WarningCheckScreen() {
     </Reveal>
     <View style={{ gap: spacing.lg, marginTop: spacing.lg }}>
       {isError ? <ErrorState error={vehiclesError} onRetry={() => void refetch()} /> : !isPending && !selected ? <EmptyState title={t('vehicle.empty')} action={{ label: t('vehicle.addNew'), onPress: () => router.push('/vehicles/add') }} /> : null}
-      <AppButton variant="secondary" label={selected ? `${selected.displayName} · ${selected.plateNumber}` : t('vehicle.select')} disabled={busy || isPending || isError} onPress={() => setSelector(true)} />
+      <AppButton variant="secondary" label={selected ? `${selectedName} · ${selected.plateNumber}` : t('vehicle.select')} disabled={busy || isPending || isError} onPress={() => setSelector(true)} />
       <View style={{ flexDirection: row, gap: spacing.sm }}>
         <AppButton label={t('warning.camera')} variant="secondary" style={{ flex: 1 }} icon={<Camera size={18} color={colors.text} strokeWidth={2.2} />} disabled={busy || webCamera} onPress={() => void pick(true)} />
         <AppButton label={t('warning.gallery')} variant="secondary" style={{ flex: 1 }} icon={<ImageIcon size={18} color={colors.text} strokeWidth={2.2} />} disabled={busy || webCamera} onPress={() => void pick(false)} />

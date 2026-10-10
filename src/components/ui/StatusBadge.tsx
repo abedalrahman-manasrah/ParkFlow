@@ -25,7 +25,7 @@ export function StatusBadge({
   style,
 }: StatusBadgeProps) {
   const { colors } = useTheme();
-  const { row, alignStart } = useLocale();
+  const { row } = useLocale();
 
   const palette: Record<BadgeTone, { bg: string; fg: string; dot: string }> = {
     success: { bg: colors.successSoft, fg: colors.successText, dot: colors.success },
@@ -38,26 +38,29 @@ export function StatusBadge({
 
   const { bg, fg, dot } = palette[tone];
 
+  // The wrapper hugs the reading-start edge inside a column and simply sizes
+  // to the pill inside a row, so the badge never stretches or drifts.
   return (
-    <View
-      accessibilityRole="text"
-      accessibilityLabel={label}
-      style={[
-        styles.base,
-        {
-          backgroundColor: bg,
-          flexDirection: row,
-          alignSelf: alignStart,
-          paddingVertical: size === 'sm' ? 3 : 5,
-          paddingHorizontal: size === 'sm' ? spacing.sm : spacing.md,
-        },
-        style,
-      ]}
-    >
-      {showDot ? <View style={[styles.dot, { backgroundColor: dot }]} /> : null}
-      <AppText variant={size === 'sm' ? 'caption' : 'label'} style={{ color: fg }} numberOfLines={1}>
-        {label}
-      </AppText>
+    <View style={{ flexDirection: row, alignItems: 'center' }}>
+      <View
+        accessibilityRole="text"
+        accessibilityLabel={label}
+        style={[
+          styles.base,
+          {
+            backgroundColor: bg,
+            flexDirection: row,
+            paddingVertical: size === 'sm' ? 3 : 5,
+            paddingHorizontal: size === 'sm' ? spacing.sm : spacing.md,
+          },
+          style,
+        ]}
+      >
+        {showDot ? <View style={[styles.dot, { backgroundColor: dot }]} /> : null}
+        <AppText variant={size === 'sm' ? 'caption' : 'label'} style={{ color: fg }} numberOfLines={1}>
+          {label}
+        </AppText>
+      </View>
     </View>
   );
 }

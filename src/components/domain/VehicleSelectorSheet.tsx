@@ -14,6 +14,7 @@ import { spacing } from '@/theme/spacing';
 import { radius } from '@/theme/radius';
 import { useLocale } from '@/hooks/useLocale';
 import type { UserVehicleView, VehicleType } from '@/types';
+import { isPlateOnlyName } from '@/utils/plate';
 
 const TYPE_ICONS: Record<VehicleType, typeof Car> = {
   private: Car,
@@ -95,7 +96,9 @@ export function VehicleSelectorSheet({
                 <View style={{ flex: 1, gap: 5 }}>
                   <View style={{ flexDirection: row, alignItems: 'center', gap: spacing.sm }}>
                     <AppText variant="titleLg" numberOfLines={1} style={{ flexShrink: 1 }}>
-                      {vehicle.displayName}
+                      {isPlateOnlyName(vehicle.displayName, vehicle.plateNumber)
+                        ? t(`vehicle.type.${vehicle.type}`)
+                        : vehicle.displayName}
                     </AppText>
                     {vehicle.isDefault ? (
                       <StatusBadge label={t('common.default')} tone="neutral" size="sm" showDot={false} />

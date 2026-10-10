@@ -162,7 +162,6 @@ export default function PointsScreen() {
                           label={t(`points.state.${entry.state}` as const)}
                           tone={STATE_TONE[entry.state]}
                           size="sm"
-                          style={{ alignSelf: alignEnd }}
                         />
                       </View>
                     }

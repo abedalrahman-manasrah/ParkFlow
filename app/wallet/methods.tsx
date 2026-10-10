@@ -167,12 +167,15 @@ export default function PaymentMethodsScreen() {
           />
         ) : null}
 
-        <AppButton
-          label={t('wallet.addCard')}
-          variant="secondary"
-          onPress={() => router.push('/wallet/add-card')}
-          icon={<Plus size={18} color={colors.text} strokeWidth={2.4} />}
-        />
+        {/* The empty state carries its own add button. */}
+        {methods.length > 0 ? (
+          <AppButton
+            label={t('wallet.addCard')}
+            variant="secondary"
+            onPress={() => router.push('/wallet/add-card')}
+            icon={<Plus size={18} color={colors.text} strokeWidth={2.4} />}
+          />
+        ) : null}
 
         <AppText variant="caption" color="textTertiary" align="center">
           {t('wallet.securityNote')}

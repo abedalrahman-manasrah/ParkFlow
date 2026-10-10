@@ -85,7 +85,7 @@ export default function ActivityScreen() {
     <Screen layout="fixed" edgeToEdge safeBottom={false}>
       <View style={{ paddingHorizontal: screenPadding, paddingTop: spacing.md, gap: spacing.lg, paddingBottom: spacing.sm }}>
         <TabHeader title={t('activity.title')} />
-        <Segmented options={options} value={filter} onChange={setFilter} />
+        <Segmented variant="inset" options={options} value={filter} onChange={setFilter} />
       </View>
 
       {isPending ? (

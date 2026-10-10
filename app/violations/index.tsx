@@ -164,7 +164,7 @@ export default function ViolationsScreen() {
                   trailing={
                     <View style={{ alignItems: alignEnd, gap: 6 }}>
                       <MoneyText value={violation.amount} variant="titleLg" />
-                      <StatusBadge label={statusLabel(violation)} tone={toneFor(violation)} size="sm" style={{ alignSelf: alignEnd }} />
+                      <StatusBadge label={statusLabel(violation)} tone={toneFor(violation)} size="sm" />
                     </View>
                   }
                   onPress={() => router.push(`/violations/${violation.id}`)}

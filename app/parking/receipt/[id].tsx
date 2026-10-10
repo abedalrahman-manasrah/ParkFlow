@@ -147,7 +147,7 @@ export default function ReceiptScreen() {
           <DetailRow label={t('parking.vehicle')}>
             <View style={{ alignItems: alignEnd, gap: 6 }}>
               <AppText variant="title">{vehicle?.displayName ?? '—'}</AppText>
-              {vehicle ? <PlateBadge plateNumber={vehicle.plateNumber} size="sm" style={{ alignSelf: alignEnd }} /> : null}
+              {vehicle ? <PlateBadge plateNumber={vehicle.plateNumber} size="sm" /> : null}
             </View>
           </DetailRow>
 

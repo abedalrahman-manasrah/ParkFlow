@@ -49,7 +49,7 @@ export default function ParkingLayoutScreen() {
             <AppText variant="caption" color="textSecondary">{t('parkingLayout.sectionCount', { count: layout.section.spaceCount })}</AppText>
           </View>
           <View style={{ alignItems: alignEnd, gap: spacing.xs }}>
-            <StatusBadge label={t('parkingLayout.demo')} tone="warning" showDot={false} style={{ alignSelf: alignEnd }} />
+            <StatusBadge label={t('parkingLayout.demo')} tone="warning" showDot={false} />
             <AppText variant="caption" color="successText">{t('parkingLayout.availableCount', { count: availableCount })}</AppText>
           </View>
         </View>

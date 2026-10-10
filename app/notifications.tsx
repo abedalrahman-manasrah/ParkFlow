@@ -100,7 +100,7 @@ export default function NotificationsScreen() {
 
   return (
     <Screen layout="fixed" edgeToEdge>
-      <View style={{ paddingHorizontal: screenPadding }}>
+      <View style={{ paddingHorizontal: screenPadding, paddingTop: spacing.md }}>
         <AppHeader
           title={t('notifications.title')}
           leading="close"

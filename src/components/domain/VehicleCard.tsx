@@ -8,6 +8,7 @@ import { spacing } from '@/theme/spacing';
 import { radius } from '@/theme/radius';
 import { useLocale } from '@/hooks/useLocale';
 import type { UserVehicleView, VehicleType } from '@/types';
+import { isPlateOnlyName } from '@/utils/plate';
 
 const TYPE_ICONS: Record<VehicleType, typeof Car> = {
   private: Car,
@@ -37,8 +38,7 @@ export function VehicleCard({
   const Icon = TYPE_ICONS[vehicle.type];
   // A vehicle without a nickname falls back to its plate, which the badge
   // below already shows — the type reads better than the same number twice.
-  const sameAsPlate =
-    vehicle.displayName.replace(/\W/g, '') === vehicle.plateNumber.replace(/\W/g, '');
+  const sameAsPlate = isPlateOnlyName(vehicle.displayName, vehicle.plateNumber);
   const title = sameAsPlate ? t(`vehicle.type.${vehicle.type}`) : vehicle.displayName;
   const hasBadges = vehicle.isDefault || isParked || violationCount > 0;
   const Chevron = isRTL ? ChevronLeft : ChevronRight;

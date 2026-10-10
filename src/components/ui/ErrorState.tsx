@@ -65,7 +65,7 @@ export function ErrorState({ error, title, onRetry, compact = false, style }: Er
           variant="secondary"
           size="md"
           fullWidth={false}
-          style={{ marginTop: spacing.sm, paddingHorizontal: spacing.xxl }}
+          style={{ alignSelf: 'center', marginTop: spacing.sm, paddingHorizontal: spacing.xxl }}
         />
       ) : null}
     </View>
