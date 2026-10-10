@@ -389,6 +389,8 @@ export const ar: Partial<Translations> = {
   'map.collapseNearby': 'طي المواقف القريبة',
   'map.noZones': 'لا توجد مواقف قريبة',
   'map.noZonesBody': 'حرّك الخريطة أو ابحث عن شارع لإيجاد موقف.',
+  'map.zonesFailed': 'تعذّر تحميل المواقف القريبة',
+  'map.zonesFailedBody': 'تحقق من اتصالك وحاول مرة أخرى.',
   'map.noDestinations': 'لا توجد وجهات قريبة',
   'map.searchFailed': 'تعذّر تحميل الاقتراحات',
   'map.recommendedParking': 'مواقف مقترحة',

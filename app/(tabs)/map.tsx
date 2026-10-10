@@ -232,7 +232,7 @@ export default function MapScreen() {
   const enabledLayerCount = 1 + Number(roadReportsEnabled) + Number(businessOffersEnabled);
 
   const { vehicles, selected, select } = useSelectedVehicle();
-  const { data: zones = [], isPending: zonesPending } = useZones();
+  const { data: zones = [], isPending: zonesPending, isError: zonesError, refetch: refetchZones } = useZones();
   const { data: activeSessions = [] } = useActiveSessions();
   const { data: checkpoints = [] } = useCheckpoints();
   const { data: unreadCount = 0 } = useUnreadNotificationCount();
@@ -1328,6 +1328,9 @@ export default function MapScreen() {
           <Reveal key="rp-nearby" offset={12}>
           <NearbyParkingPanel
             zones={nearbyZones}
+            loading={zonesPending}
+            error={zonesError}
+            onRetry={() => void refetchZones()}
             expanded={nearbyExpanded}
             onExpandedChange={setNearbyExpanded}
             onSelectZone={focusZone}

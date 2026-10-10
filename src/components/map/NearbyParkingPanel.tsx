@@ -4,7 +4,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 
-import { AppText, PressableScale } from '@/components/ui';
+import { AppButton, AppText, PressableScale, SkeletonGroup } from '@/components/ui';
 import { useLocale } from '@/hooks/useLocale';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius } from '@/theme/radius';
@@ -14,6 +14,12 @@ import { CompactZoneCard, type NearbyZone } from './CompactZoneCard';
 
 interface NearbyParkingPanelProps {
   zones: NearbyZone[];
+  /** First fetch still in flight — zones is '[]' either way, so this is the
+   * only thing that tells "still loading" apart from "genuinely none nearby". */
+  loading?: boolean;
+  /** The zones request failed outright, rather than just returning none. */
+  error?: boolean;
+  onRetry?: () => void;
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
   onSelectZone: (item: NearbyZone) => void;
@@ -27,7 +33,15 @@ const PARTIAL_LIST_HEIGHT = 200;
  * (a short scrollable list) and full (half the screen). Tap the header or swipe
  * to move between them; the map state only tracks collapsed vs expanded.
  */
-export function NearbyParkingPanel({ zones, expanded, onExpandedChange, onSelectZone }: NearbyParkingPanelProps) {
+export function NearbyParkingPanel({
+  zones,
+  loading = false,
+  error = false,
+  onRetry,
+  expanded,
+  onExpandedChange,
+  onSelectZone,
+}: NearbyParkingPanelProps) {
   const { colors } = useTheme();
   const { t, row } = useLocale();
   const { height: windowHeight } = useWindowDimensions();
@@ -95,7 +109,7 @@ export function NearbyParkingPanel({ zones, expanded, onExpandedChange, onSelect
             <View style={{ flex: 1, gap: 2 }}>
               <AppText variant="titleLg">{t('map.nearby')}</AppText>
               <AppText variant="caption" color="textTertiary" numeric>
-                {t('map.zonesFound', { count: zones.length })}
+                {loading ? t('common.loading') : t('map.zonesFound', { count: zones.length })}
               </AppText>
             </View>
             <Chevron size={16} color={colors.textTertiary} strokeWidth={2.2} />
@@ -104,7 +118,19 @@ export function NearbyParkingPanel({ zones, expanded, onExpandedChange, onSelect
       </GestureDetector>
 
       <View style={{ paddingHorizontal: spacing.md }}>
-        {zones.length === 0 ? (
+        {loading ? (
+          <SkeletonGroup count={expanded ? 3 : 1} height={58} style={{ paddingVertical: spacing.xs }} />
+        ) : error ? (
+          <View style={{ paddingHorizontal: spacing.md, paddingVertical: spacing.md, gap: spacing.sm, alignItems: 'flex-start' }}>
+            <AppText variant="title">{t('map.zonesFailed')}</AppText>
+            <AppText variant="caption" color="textSecondary">
+              {t('map.zonesFailedBody')}
+            </AppText>
+            {onRetry ? (
+              <AppButton label={t('common.retry')} size="sm" fullWidth={false} variant="secondary" onPress={onRetry} />
+            ) : null}
+          </View>
+        ) : zones.length === 0 ? (
           <View style={{ paddingHorizontal: spacing.md, paddingVertical: spacing.md, gap: spacing.xs }}>
             <AppText variant="title">{t('map.noZones')}</AppText>
             <AppText variant="caption" color="textSecondary">

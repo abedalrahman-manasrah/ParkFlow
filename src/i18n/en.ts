@@ -164,6 +164,8 @@ export const en = {
   'map.collapseNearby': 'Collapse nearby parking',
   'map.noZones': 'No parking zones nearby',
   'map.noZonesBody': 'Move the map or search for a street to find parking.',
+  'map.zonesFailed': 'Could not load nearby parking',
+  'map.zonesFailedBody': 'Check your connection and try again.',
   'map.noDestinations': 'No destinations found nearby',
   'map.searchFailed': 'Could not load suggestions',
   'map.recommendedParking': 'Recommended Parking',

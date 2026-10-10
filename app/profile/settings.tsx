@@ -9,6 +9,7 @@ import {
   AppText,
   Card,
   Divider,
+  InlineNotice,
   PressableScale,
   Screen,
   SectionHeader,
@@ -23,6 +24,7 @@ import { useLocale } from '@/hooks/useLocale';
 import { usePreferencesStore, type ThemeMode } from '@/store/preferencesStore';
 import { LOCALES, localeNames, type Locale } from '@/i18n';
 import type { NotificationPreferences } from '@/types';
+import { errorMessage } from '@/utils/errors';
 import { haptics } from '@/utils/haptics';
 
 const THEME_ICONS: Record<ThemeMode, typeof Sun> = {
@@ -174,21 +176,37 @@ export default function SettingsScreen() {
         </View>
 
         {/* ---- Notifications ---------------------------------------------- */}
-        <View>
+        <View style={{ gap: spacing.sm }}>
           <SectionHeader title={t('profile.notifications')} />
-          <Card padding="lg" style={{ gap: spacing.xs }}>
-            {PREF_KEYS.map((key, index) => (
-              <View key={key}>
-                {index > 0 ? <Divider style={{ marginVertical: spacing.xs }} /> : null}
-                <SwitchRow
-                  label={t(`profile.prefs.${key}` as const)}
-                  value={notifications[key]}
-                  disabled={preferenceQuery.isPending || updatePreferences.isPending}
-                  onValueChange={(value) => setNotificationPreference(key, value)}
-                />
-              </View>
-            ))}
-          </Card>
+          {preferenceQuery.isError ? (
+            <InlineNotice
+              tone="danger"
+              title={t('common.somethingWrong')}
+              body={errorMessage(preferenceQuery.error)}
+              action={{ label: t('common.retry'), onPress: () => void preferenceQuery.refetch() }}
+            />
+          ) : (
+            <Card padding="lg" style={{ gap: spacing.xs }}>
+              {PREF_KEYS.map((key, index) => (
+                <View key={key}>
+                  {index > 0 ? <Divider style={{ marginVertical: spacing.xs }} /> : null}
+                  <SwitchRow
+                    label={t(`profile.prefs.${key}` as const)}
+                    value={notifications[key]}
+                    disabled={preferenceQuery.isPending || updatePreferences.isPending}
+                    onValueChange={(value) => setNotificationPreference(key, value)}
+                  />
+                </View>
+              ))}
+            </Card>
+          )}
+          {updatePreferences.isError ? (
+            <InlineNotice
+              tone="danger"
+              title={t('common.somethingWrong')}
+              body={errorMessage(updatePreferences.error)}
+            />
+          ) : null}
         </View>
       </View>
     </Screen>
