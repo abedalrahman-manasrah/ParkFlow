@@ -1,8 +1,10 @@
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AppButton, AppText, Card } from '@/components/ui';
 import { useLocale } from '@/hooks/useLocale';
 import { useTheme } from '@/theme/ThemeProvider';
+import { radius } from '@/theme/radius';
+import { shadow } from '@/theme/shadows';
 import type { CarServiceBusiness, CarServiceCategory } from '@/types';
 
 export function CarServiceMapStatus({
@@ -31,7 +33,7 @@ export function CarServiceMapStatus({
   const { colors } = useTheme();
   const preview = services.slice(0, 4);
   const remaining = Math.max(0, count - preview.length);
-  return <View style={{ padding: 12, gap: 8, borderRadius: 20, backgroundColor: colors.surface }}>
+  return <View style={[{ padding: 12, gap: 8, borderRadius: radius.xl, backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth * 2, borderColor: colors.border }, shadow.sm]}>
     <Card padding="sm" tone="brand" accessibilityLabel={t('warning.entry')} onPress={() => router.push('/vehicles/warning-check')}>
       <AppText variant="title">{t('warning.entry')}</AppText>
       {!compact ? <AppText variant="caption">{t('warning.entryBody')}</AppText> : null}

@@ -3,7 +3,9 @@ import { Image, Linking, Platform, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { AppButton, AppHeader, AppText, Card, EmptyState, ErrorState, InlineNotice, Screen } from '@/components/ui';
+import { Camera, ImageIcon } from 'lucide-react-native';
+import { AppButton, AppHeader, AppText, Card, EmptyState, ErrorState, InlineNotice, Reveal, Screen } from '@/components/ui';
+import { useTheme } from '@/theme/ThemeProvider';
 import { VehicleSelectorSheet } from '@/components/domain/VehicleSelectorSheet';
 import { useVehicles } from '@/hooks/useVehicles';
 import { useLocale } from '@/hooks/useLocale';
@@ -86,7 +88,8 @@ function WarningCard({ warning, location, requestLocation, locationStatus }: {
 }
 
 export default function WarningCheckScreen() {
-  const { t } = useLocale();
+  const { t, row } = useLocale();
+  const { colors } = useTheme();
   const router = useRouter();
   const { vehicleId } = useLocalSearchParams<{ vehicleId?: string }>();
   const { data: vehicles = [], isPending, isError, error: vehiclesError, refetch } = useVehicles();
@@ -158,14 +161,18 @@ export default function WarningCheckScreen() {
   };
   return <Screen>
     <AppHeader title={t('warning.title')} />
-    <View style={{ gap: spacing.lg }}>
+    <Reveal style={{ gap: spacing.lg }}>
       <InlineNotice tone="warning" title={t('warning.limitTitle')} body={t('warning.limitBody')} />
       <AppText>{t('warning.photoHelp')}</AppText>
       <AppText variant="caption">{t('warning.privacy')}</AppText>
+    </Reveal>
+    <View style={{ gap: spacing.lg, marginTop: spacing.lg }}>
       {isError ? <ErrorState error={vehiclesError} onRetry={() => void refetch()} /> : !isPending && !selected ? <EmptyState title={t('vehicle.empty')} action={{ label: t('vehicle.addNew'), onPress: () => router.push('/vehicles/add') }} /> : null}
       <AppButton variant="secondary" label={selected ? `${selected.displayName} · ${selected.plateNumber}` : t('vehicle.select')} disabled={busy || isPending || isError} onPress={() => setSelector(true)} />
-      <AppButton label={t('warning.camera')} variant="secondary" disabled={busy || webCamera} onPress={() => void pick(true)} />
-      <AppButton label={t('warning.gallery')} variant="secondary" disabled={busy || webCamera} onPress={() => void pick(false)} />
+      <View style={{ flexDirection: row, gap: spacing.sm }}>
+        <AppButton label={t('warning.camera')} variant="secondary" style={{ flex: 1 }} icon={<Camera size={18} color={colors.text} strokeWidth={2.2} />} disabled={busy || webCamera} onPress={() => void pick(true)} />
+        <AppButton label={t('warning.gallery')} variant="secondary" style={{ flex: 1 }} icon={<ImageIcon size={18} color={colors.text} strokeWidth={2.2} />} disabled={busy || webCamera} onPress={() => void pick(false)} />
+      </View>
       {webCamera ? <>
         <CameraView ref={cameraRef} facing="back" mode="picture" style={{ width: '100%', height: 260 }}
           onCameraReady={() => setCameraReady(true)} onMountError={() => { setWebCamera(false); setError('warning.cameraDenied'); }} />
