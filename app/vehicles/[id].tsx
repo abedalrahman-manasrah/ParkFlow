@@ -50,7 +50,7 @@ const TYPE_ICONS: Record<VehicleType, typeof Car> = {
 export default function VehicleDetailScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { t, row, dateLocale, locale } = useLocale();
+  const { t, row, alignEnd, dateLocale, locale } = useLocale();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const { data: vehicle, isPending, isError, error, refetch } = useVehicle(id);
@@ -206,7 +206,7 @@ export default function VehicleDetailScreen() {
                       session.stoppedAt ? formatTime(session.stoppedAt, dateLocale) : '—'
                     }`}
                     trailing={
-                      <View style={{ alignItems: 'flex-end', gap: 3 }}>
+                      <View style={{ alignItems: alignEnd, gap: 3 }}>
                         <MoneyText value={session.finalCost ?? session.currentCost} variant="title" />
                         <AppText variant="caption" color="textTertiary" numeric>
                           {session.stoppedAt

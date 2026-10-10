@@ -28,7 +28,7 @@ const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
 /** ParkFlow Points — the driver trust score, and the discount it buys. */
 export default function PointsScreen() {
   const { colors } = useTheme();
-  const { t, row, dateLocale } = useLocale();
+  const { t, row, alignEnd, dateLocale } = useLocale();
   const { data: trust, isPending, isError, error, refetch } = useTrust();
 
   const tierName = (tier: TrustTier) => t(`points.tier.${tier}` as const);
@@ -154,7 +154,7 @@ export default function PointsScreen() {
                     title={t(`points.reason.${entry.reason}` as const)}
                     subtitle={formatDateTime(entry.createdAt, dateLocale)}
                     trailing={
-                      <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                      <View style={{ alignItems: alignEnd, gap: 4 }}>
                         <AppText variant="title" numeric>
                           +{entry.points}
                         </AppText>
@@ -162,6 +162,7 @@ export default function PointsScreen() {
                           label={t(`points.state.${entry.state}` as const)}
                           tone={STATE_TONE[entry.state]}
                           size="sm"
+                          style={{ alignSelf: alignEnd }}
                         />
                       </View>
                     }

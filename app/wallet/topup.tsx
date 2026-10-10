@@ -37,7 +37,7 @@ const MAX_TOPUP = 100000;
 export default function TopUpScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { t, row } = useLocale();
+  const { t, row, alignStart } = useLocale();
   const params = useLocalSearchParams<{ amount?: string }>();
 
   const { data: wallet, isPending } = useWallet();
@@ -141,7 +141,7 @@ export default function TopUpScreen() {
               setIsCustom(true);
             }}
             hitSlop={8}
-            style={{ alignSelf: 'flex-start', paddingVertical: spacing.xs }}
+            style={{ alignSelf: alignStart, paddingVertical: spacing.xs }}
           >
             <AppText variant="label" color={isCustom ? 'brand' : 'textSecondary'}>
               {t('wallet.other')}

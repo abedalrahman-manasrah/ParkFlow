@@ -27,6 +27,7 @@ import {
   Divider,
   ListItem,
   Screen,
+  TabHeader,
 } from '@/components/ui';
 import { useTheme } from '@/theme/ThemeProvider';
 import { spacing } from '@/theme/spacing';
@@ -95,7 +96,7 @@ export default function ProfileScreen() {
           paddingBottom: TAB_BAR_CLEARANCE + insets.bottom,
         }}
       >
-        <AppText variant="h1">{t('profile.title')}</AppText>
+        <TabHeader title={t('profile.title')} />
 
         <Card padding="xl" style={{ alignItems: 'center', gap: spacing.md }}>
           <Avatar name={user?.fullName} size={76} />

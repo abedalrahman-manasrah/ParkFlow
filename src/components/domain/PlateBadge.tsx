@@ -1,6 +1,7 @@
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { AppText } from '@/components/ui/AppText';
 import { useTheme } from '@/theme/ThemeProvider';
+import { useLocale } from '@/hooks/useLocale';
 import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
 
@@ -20,6 +21,7 @@ export interface PlateBadgeProps {
  */
 export function PlateBadge({ plateNumber, size = 'md', tone = 'default', style }: PlateBadgeProps) {
   const { colors } = useTheme();
+  const { alignStart } = useLocale();
 
   const metrics = {
     sm: { height: 22, font: 'caption' as const, padding: spacing.sm, strip: 4 },
@@ -44,7 +46,7 @@ export function PlateBadge({ plateNumber, size = 'md', tone = 'default', style }
           borderColor: border,
           backgroundColor: background,
           overflow: 'hidden',
-          alignSelf: 'flex-start',
+          alignSelf: alignStart,
         },
         style,
       ]}

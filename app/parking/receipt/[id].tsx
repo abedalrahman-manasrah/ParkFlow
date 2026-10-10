@@ -37,7 +37,7 @@ type WebNavigator = { clipboard?: { writeText(text: string): Promise<void> } };
 export default function ReceiptScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { t, dateLocale, locale } = useLocale();
+  const { t, alignEnd, dateLocale, locale } = useLocale();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const { data: session, isPending, isError, error, refetch } = useSessionById(id);
@@ -145,9 +145,9 @@ export default function ReceiptScreen() {
       <Reveal delay={200} style={{ marginTop: spacing.xxl }}>
         <Card padding="xl" style={{ gap: spacing.md }}>
           <DetailRow label={t('parking.vehicle')}>
-            <View style={{ alignItems: 'flex-end', gap: 6 }}>
+            <View style={{ alignItems: alignEnd, gap: 6 }}>
               <AppText variant="title">{vehicle?.displayName ?? '—'}</AppText>
-              {vehicle ? <PlateBadge plateNumber={vehicle.plateNumber} size="sm" /> : null}
+              {vehicle ? <PlateBadge plateNumber={vehicle.plateNumber} size="sm" style={{ alignSelf: alignEnd }} /> : null}
             </View>
           </DetailRow>
 

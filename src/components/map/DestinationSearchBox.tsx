@@ -32,7 +32,7 @@ export function DestinationSearchBox({
   onSelect,
 }: Props) {
   const { colors } = useTheme();
-  const { t, row, locale } = useLocale();
+  const { t, row, isRTL, locale } = useLocale();
   const voiceLanguage = usePreferencesStore((s) => s.voiceLanguage);
   const hasQuery = value.trim().length >= 2;
   const [listening, setListening] = useState(false);
@@ -86,7 +86,7 @@ export function DestinationSearchBox({
   return (
     // The map's control rail floats in the same row at the end edge, so the
     // search field stops short of it; otherwise the mic button sits underneath.
-    <View style={{ gap: spacing.xs, paddingEnd: 56 }}>
+    <View style={{ gap: spacing.xs, [isRTL ? 'paddingLeft' : 'paddingRight']: 56 }}>
       <SearchField
         value={value}
         onChangeText={onChange}

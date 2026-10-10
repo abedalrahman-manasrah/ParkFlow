@@ -38,7 +38,7 @@ const TAB_STATUSES: Record<Tab, ViolationStatus[]> = {
 export default function ViolationsScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { t, row, dateLocale, locale } = useLocale();
+  const { t, row, isRTL, alignEnd, dateLocale, locale } = useLocale();
   const [tab, setTab] = useState<Tab>('unpaid');
 
   const { data: violations = [], isPending, isError, error, refetch } = useViolations();
@@ -162,16 +162,16 @@ export default function ViolationsScreen() {
                     </View>
                   }
                   trailing={
-                    <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                    <View style={{ alignItems: alignEnd, gap: 6 }}>
                       <MoneyText value={violation.amount} variant="titleLg" />
-                      <StatusBadge label={statusLabel(violation)} tone={toneFor(violation)} size="sm" />
+                      <StatusBadge label={statusLabel(violation)} tone={toneFor(violation)} size="sm" style={{ alignSelf: alignEnd }} />
                     </View>
                   }
                   onPress={() => router.push(`/violations/${violation.id}`)}
                 />
                 {/* The plate is the subject of the notice, so it stays visible
                     in the list rather than only on the detail screen. */}
-                <View style={{ paddingBottom: spacing.md, marginStart: 44 + spacing.md }}>
+                <View style={{ paddingBottom: spacing.md, [isRTL ? 'marginRight' : 'marginLeft']: 44 + spacing.md }}>
                   <PlateBadge plateNumber={violation.plateNumber} size="sm" />
                 </View>
               </View>

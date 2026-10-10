@@ -25,7 +25,7 @@ export function StatusBadge({
   style,
 }: StatusBadgeProps) {
   const { colors } = useTheme();
-  const { row } = useLocale();
+  const { row, alignStart } = useLocale();
 
   const palette: Record<BadgeTone, { bg: string; fg: string; dot: string }> = {
     success: { bg: colors.successSoft, fg: colors.successText, dot: colors.success },
@@ -47,6 +47,7 @@ export function StatusBadge({
         {
           backgroundColor: bg,
           flexDirection: row,
+          alignSelf: alignStart,
           paddingVertical: size === 'sm' ? 3 : 5,
           paddingHorizontal: size === 'sm' ? spacing.sm : spacing.md,
         },
@@ -64,7 +65,6 @@ export function StatusBadge({
 const styles = StyleSheet.create({
   base: {
     alignItems: 'center',
-    alignSelf: 'flex-start',
     borderRadius: radius.pill,
     gap: spacing.xs + 2,
   },

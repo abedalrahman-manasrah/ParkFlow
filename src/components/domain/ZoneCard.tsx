@@ -56,7 +56,7 @@ export interface ZoneCardProps {
  */
 export function ZoneCard({ zone, distanceMeters, onPress, width = 236 }: ZoneCardProps) {
   const { colors } = useTheme();
-  const { t, row, locale } = useLocale();
+  const { t, row, alignEnd, locale } = useLocale();
 
   const isGarage = zone.kind === 'garage' || zone.kind === 'private';
   const Icon = isGarage ? Building2 : CircleParking;
@@ -117,7 +117,7 @@ export function ZoneCard({ zone, distanceMeters, onPress, width = 236 }: ZoneCar
         </View>
 
         {distanceMeters != null ? (
-          <View style={{ alignItems: 'flex-end', gap: 2 }}>
+          <View style={{ alignItems: alignEnd, gap: 2 }}>
             <View style={{ flexDirection: row, alignItems: 'center', gap: 4 }}>
               <Footprints size={12} color={colors.textTertiary} strokeWidth={2.2} />
               <AppText variant="caption" color="textSecondary" numeric>

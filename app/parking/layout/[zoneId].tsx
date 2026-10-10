@@ -13,7 +13,7 @@ import type { ParkingLayout, ParkingLayoutSpot, ParkingSpotState } from '@/types
 export default function ParkingLayoutScreen() {
   const { zoneId } = useLocalSearchParams<{ zoneId: string }>();
   const router = useRouter();
-  const { t, locale, row, dateLocale } = useLocale();
+  const { t, locale, row, alignEnd, dateLocale } = useLocale();
   const { colors } = useTheme();
   const { data: layout, isPending, isError, error, refetch, isRefetching } = useParkingLayout(zoneId);
   const [selectedId, setSelectedId] = useState<string>();
@@ -48,8 +48,8 @@ export default function ParkingLayoutScreen() {
             <AppText variant="title">{locale === 'ar' ? layout.section.nameAr : layout.section.name}</AppText>
             <AppText variant="caption" color="textSecondary">{t('parkingLayout.sectionCount', { count: layout.section.spaceCount })}</AppText>
           </View>
-          <View style={{ alignItems: 'flex-end', gap: spacing.xs }}>
-            <StatusBadge label={t('parkingLayout.demo')} tone="warning" showDot={false} />
+          <View style={{ alignItems: alignEnd, gap: spacing.xs }}>
+            <StatusBadge label={t('parkingLayout.demo')} tone="warning" showDot={false} style={{ alignSelf: alignEnd }} />
             <AppText variant="caption" color="successText">{t('parkingLayout.availableCount', { count: availableCount })}</AppText>
           </View>
         </View>

@@ -12,6 +12,7 @@ import {
   Screen,
   Segmented,
   SkeletonGroup,
+  TabHeader,
 } from '@/components/ui';
 import { TransactionRow } from '@/components/domain/TransactionRow';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -82,8 +83,8 @@ export default function ActivityScreen() {
 
   return (
     <Screen layout="fixed" edgeToEdge safeBottom={false}>
-      <View style={{ paddingHorizontal: screenPadding, paddingTop: spacing.md, gap: spacing.lg, paddingBottom: spacing.md }}>
-        <AppText variant="h1">{t('activity.title')}</AppText>
+      <View style={{ paddingHorizontal: screenPadding, paddingTop: spacing.md, gap: spacing.lg, paddingBottom: spacing.sm }}>
+        <TabHeader title={t('activity.title')} />
         <Segmented options={options} value={filter} onChange={setFilter} />
       </View>
 

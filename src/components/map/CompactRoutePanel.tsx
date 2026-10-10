@@ -13,7 +13,7 @@ import type { RouteImpact, ScoredRouteCandidate } from '@/utils/routeImpact';
 
 function RouteDetails({ route }: { route: RouteResult }) {
   const { colors } = useTheme();
-  const { t, locale, row } = useLocale();
+  const { t, locale, row, alignStart } = useLocale();
   const nameOf = (closure: RouteClosure) => (locale === 'ar' ? closure.nameAr : closure.nameEn);
   const statusOf = (closure: RouteClosure) => t(`roads.status.${closure.status}` as const);
   const delayMinutes = route.trafficSummary?.delaySeconds
@@ -144,7 +144,7 @@ export function CompactRoutePanel({
   showNoAlternative = false,
 }: CompactRoutePanelProps) {
   const { colors } = useTheme();
-  const { t, locale, row } = useLocale();
+  const { t, locale, row, alignStart } = useLocale();
   const name = locale === 'ar' && destination.type !== 'ev_station' ? destination.nameAr ?? destination.name : destination.name;
   const Chevron = detailsExpanded ? ChevronDown : ChevronUp;
   const primaryImpact = impacts[0];
@@ -319,7 +319,7 @@ export function CompactRoutePanel({
             accessibilityRole="button"
             accessibilityLabel={detailsExpanded ? t('route.hideDetails') : t('route.details')}
             accessibilityState={{ expanded: detailsExpanded }}
-            style={{ flexDirection: row, alignItems: 'center', gap: spacing.xs, alignSelf: 'flex-start' }}
+            style={{ flexDirection: row, alignItems: 'center', gap: spacing.xs, alignSelf: alignStart }}
           >
             <AppText variant="caption" color="textSecondary">
               {detailsExpanded ? t('route.hideDetails') : t('route.details')}

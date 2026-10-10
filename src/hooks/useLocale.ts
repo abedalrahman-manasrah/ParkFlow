@@ -19,6 +19,9 @@ export interface LocaleContext {
   /** Flip a row when the language is RTL. */
   row: 'row' | 'row-reverse';
   textAlign: 'left' | 'right';
+  /** Cross-axis value that hugs the reading start / end edge of a column. */
+  alignStart: 'flex-start' | 'flex-end';
+  alignEnd: 'flex-start' | 'flex-end';
   /** Direction multiplier for translateX-style animations and chevrons. */
   dir: 1 | -1;
 }
@@ -30,6 +33,18 @@ export interface LocaleContext {
  * selected — and we still tell I18nManager to allow RTL so native text input and
  * system components behave.
  */
+/**
+ * Components mirror themselves through `row` / `textAlign`, the same way they do
+ * on native where the layout engine stays left-to-right. A `dir="rtl"` document
+ * would flip every flex row a second time and undo that mirroring, so the page
+ * keeps an LTR layout; Arabic text still shapes correctly because each text root
+ * renders with `dir="auto"`.
+ */
+function applyWebDocumentLocale(locale: Locale) {
+  document.documentElement.dir = 'ltr';
+  document.documentElement.lang = locale;
+}
+
 export function useLocale(): LocaleContext {
   const locale = usePreferencesStore((s) => s.locale);
   const setStoredLocale = usePreferencesStore((s) => s.setLocale);
@@ -40,8 +55,7 @@ export function useLocale(): LocaleContext {
     if (Platform.OS !== 'web') {
       I18nManager.allowRTL(isRTL);
     } else if (typeof document !== 'undefined') {
-      document.documentElement.dir = isRTL ? 'rtl' : 'ltr';
-      document.documentElement.lang = locale;
+      applyWebDocumentLocale(locale);
     }
   }, [isRTL, locale]);
 
@@ -57,8 +71,7 @@ export function useLocale(): LocaleContext {
       if (Platform.OS !== 'web') {
         I18nManager.allowRTL(isRtlLocale(next));
       } else if (typeof document !== 'undefined') {
-        document.documentElement.dir = isRtlLocale(next) ? 'rtl' : 'ltr';
-        document.documentElement.lang = next;
+        applyWebDocumentLocale(next);
       }
     },
     [setStoredLocale],
@@ -73,6 +86,8 @@ export function useLocale(): LocaleContext {
       setLocale,
       row: isRTL ? 'row-reverse' : 'row',
       textAlign: isRTL ? 'right' : 'left',
+      alignStart: isRTL ? 'flex-end' : 'flex-start',
+      alignEnd: isRTL ? 'flex-start' : 'flex-end',
       dir: isRTL ? -1 : 1,
     }),
     [locale, isRTL, t, setLocale],

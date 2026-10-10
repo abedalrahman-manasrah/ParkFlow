@@ -4,6 +4,7 @@ export * from './IconButton';
 export * from './PressableScale';
 export * from './Screen';
 export * from './AppHeader';
+export * from './TabHeader';
 export * from './Card';
 export * from './BottomSheet';
 export * from './StatusBadge';

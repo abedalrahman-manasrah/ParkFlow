@@ -30,7 +30,7 @@ export interface TransactionRowProps {
 
 export function TransactionRow({ transaction, onPress }: TransactionRowProps) {
   const { colors } = useTheme();
-  const { t, row, dateLocale, locale } = useLocale();
+  const { t, row, alignEnd, dateLocale, locale } = useLocale();
 
   const Icon = ICONS[transaction.type];
   const isCredit = transaction.amount > 0;
@@ -88,7 +88,7 @@ export function TransactionRow({ transaction, onPress }: TransactionRowProps) {
         </View>
       </View>
 
-      <View style={{ alignItems: 'flex-end', gap: 4 }}>
+      <View style={{ alignItems: alignEnd, gap: 4 }}>
         <MoneyText
           value={transaction.amount}
           signed
@@ -97,9 +97,9 @@ export function TransactionRow({ transaction, onPress }: TransactionRowProps) {
           style={failed ? { textDecorationLine: 'line-through' } : undefined}
         />
         {failed ? (
-          <StatusBadge label={t('activity.status.failed')} tone="danger" size="sm" />
+          <StatusBadge label={t('activity.status.failed')} tone="danger" size="sm" style={{ alignSelf: alignEnd }} />
         ) : transaction.status === 'pending' ? (
-          <StatusBadge label={t('activity.status.pending')} tone="warning" size="sm" />
+          <StatusBadge label={t('activity.status.pending')} tone="warning" size="sm" style={{ alignSelf: alignEnd }} />
         ) : null}
       </View>
     </PressableScale>
