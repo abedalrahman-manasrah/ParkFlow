@@ -81,6 +81,9 @@ function RootNavigator() {
       <Stack.Screen name="(onboarding)" options={{ animation: 'fade' }} />
       <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
       <Stack.Screen name="parking" />
+      <Stack.Screen name="rides" />
+      <Stack.Screen name="spots" />
+      <Stack.Screen name="gate" />
       <Stack.Screen name="vehicles" />
       <Stack.Screen name="wallet" />
       <Stack.Screen name="activity" />

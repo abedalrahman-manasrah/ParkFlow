@@ -8,9 +8,12 @@ import {
   CalendarCheck,
   CircleHelp,
   CreditCard,
+  DoorOpen,
   Info,
+  QrCode,
   LogOut,
   ScrollText,
+  ShieldCheck,
   Settings,
   TriangleAlert,
   User as UserIcon,
@@ -33,6 +36,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { spacing } from '@/theme/spacing';
 import { radius } from '@/theme/radius';
 import { useLocale } from '@/hooks/useLocale';
+import { useIsGateStaff } from '@/hooks/useGates';
 import { useCurrentUser } from '@/hooks/useSession';
 import { useTrust } from '@/hooks/useCommunity';
 import { useAuthStore } from '@/store/authStore';
@@ -65,6 +69,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { t, dateLocale } = useLocale();
+  const staff = useIsGateStaff();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
 
@@ -150,7 +155,36 @@ export default function ProfileScreen() {
             showChevron
             onPress={() => router.push('/parking/reservations')}
           />
+          <Divider inset={52} />
+          <ListItem
+            title={t('gate.passTitle')}
+            leading={<MenuIcon><QrCode {...iconProps} /></MenuIcon>}
+            showChevron
+            onPress={() => router.push('/gate/pass')}
+          />
         </Card>
+
+        {staff.patrol ? (
+          <Card padding="lg" style={{ paddingVertical: spacing.xs }}>
+            {staff.gate ? (
+              <>
+                <ListItem
+                  title={t('gate.modeTitle')}
+                  leading={<MenuIcon><DoorOpen {...iconProps} /></MenuIcon>}
+                  showChevron
+                  onPress={() => router.push('/gate')}
+                />
+                <Divider inset={52} />
+              </>
+            ) : null}
+            <ListItem
+              title={t('patrol.title')}
+              leading={<MenuIcon><ShieldCheck {...iconProps} /></MenuIcon>}
+              showChevron
+              onPress={() => router.push('/gate/patrol')}
+            />
+          </Card>
+        ) : null}
 
         <Card padding="lg" style={{ paddingVertical: spacing.xs }}>
           <ListItem

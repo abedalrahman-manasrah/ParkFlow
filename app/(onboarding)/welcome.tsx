@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { useMutation } from '@tanstack/react-query';
 import { MapPin, Wallet, BellRing } from 'lucide-react-native';
 
 import { AppButton, AppText, Reveal } from '@/components/ui';
@@ -12,6 +13,16 @@ import { spacing, screenPadding } from '@/theme/spacing';
 import { radius } from '@/theme/radius';
 import { shadow } from '@/theme/shadows';
 import { useLocale } from '@/hooks/useLocale';
+import { services } from '@/services';
+import { useAuthStore } from '@/store/authStore';
+import { usePreferencesStore } from '@/store/preferencesStore';
+import { errorMessage } from '@/utils/errors';
+import { haptics } from '@/utils/haptics';
+
+// Development-only shortcut: signs in as a fixed demo account, skipping email + OTP.
+const devQuickLogin = __DEV__ && process.env.EXPO_PUBLIC_DEV_SKIP_EMAIL_OTP === 'true';
+const DEMO_EMAIL = 'demo@parkflow.ps';
+const DEMO_NAME = 'Demo Driver';
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -27,6 +38,23 @@ export default function WelcomeScreen() {
   ];
 
   const goToEmail = () => router.push('/(onboarding)/email');
+
+  const completeOnboarding = usePreferencesStore((state) => state.completeOnboarding);
+  const setUser = useAuthStore((state) => state.setUser);
+  const quickLogin = useMutation({
+    mutationFn: async () => {
+      const result = await services.auth.devLogin({ email: DEMO_EMAIL });
+      if (!result.user.fullName) {
+        setUser(await services.auth.completeProfile({ userId: result.user.id, fullName: DEMO_NAME }));
+      }
+    },
+    onSuccess: () => {
+      haptics.success();
+      completeOnboarding();
+      router.replace('/(tabs)/map');
+    },
+    onError: () => haptics.error(),
+  });
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -139,7 +167,21 @@ export default function WelcomeScreen() {
               variant="ghost"
               style={{ height: 44 }}
             />
-
+            {devQuickLogin ? (
+              <AppButton
+                label={t('onboarding.quickLogin')}
+                onPress={() => quickLogin.mutate()}
+                loading={quickLogin.isPending}
+                variant="ghost"
+                style={{ height: 44 }}
+                testID="welcome-quick-login"
+              />
+            ) : null}
+            {quickLogin.isError ? (
+              <AppText variant="caption" color="danger" align="center">
+                {errorMessage(quickLogin.error)}
+              </AppText>
+            ) : null}
           </Reveal>
         </View>
       </LinearGradient>

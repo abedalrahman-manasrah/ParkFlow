@@ -267,6 +267,8 @@ export interface Services {
   roadReports: RoadReportService;
   routing: RoutingService;
   trust: TrustService;
+  sharing: import('../types/sharing').SharingService;
+  gates: import('../types/gate').GateService;
 }
 
 export type { Vehicle, UserVehicleView };

@@ -14,6 +14,8 @@ import { httpRoadService } from './http/roadService';
 import { httpRoadReportService } from './http/roadReportService';
 import { httpRoutingService } from './http/routingService';
 import { httpTrustService } from './http/trustService';
+import { httpSharingService } from './http/sharingService';
+import { httpGateService } from './http/gateService';
 
 export const services: Services = {
   evStations: httpEvStationService,
@@ -31,6 +33,8 @@ export const services: Services = {
   roadReports: httpRoadReportService,
   routing: httpRoutingService,
   trust: httpTrustService,
+  sharing: httpSharingService,
+  gates: httpGateService,
 };
 export * from './types';
 export { DEFAULT_REGION, LANDMARKS, RAMALLAH_CENTER } from '../data/mapDefaults';

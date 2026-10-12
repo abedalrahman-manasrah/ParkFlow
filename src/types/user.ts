@@ -10,6 +10,10 @@ export interface User {
   /** Not collected during basic onboarding — reserved for permits/appeals. */
   nationalId?: string;
   locale: 'en' | 'ar';
+  /** Staff roles unlock Gate mode and the patrol check. */
+  role?: 'USER' | 'ADMIN' | 'PARKING_OPERATOR' | 'ENFORCEMENT_OFFICER';
+  /** Self-declared; only used to open women-only rides. */
+  gender?: 'female' | 'male' | null;
   createdAt: ISODateString;
   updatedAt: ISODateString;
 }

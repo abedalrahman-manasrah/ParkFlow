@@ -48,6 +48,9 @@ enum TransactionType {
   refund
   adjustment
   reward
+  ride_payment
+  spot_payment
+  earning
 }
 
 enum TransactionStatus {
@@ -147,22 +150,22 @@ enum ParkingReservationStatus {
 }
 
 model User {
-  id                      String              @id @default(uuid())
-  phone                   String?             @unique
+  id                      String               @id @default(uuid())
+  phone                   String?              @unique
   countryCode             String?
   phoneVerifiedAt         DateTime?
-  fullName                String              @default("")
-  firstName               String              @default("")
-  lastName                String              @default("")
-  email                   String?             @unique
+  fullName                String               @default("")
+  firstName               String               @default("")
+  lastName                String               @default("")
+  email                   String?              @unique
   emailVerifiedAt         DateTime?
   avatarUrl               String?
-  locale                  String              @default("en")
-  role                    Role                @default(USER)
-  status                  UserStatus          @default(ACTIVE)
-  notificationPreferences Json                @default("{\"parkingReminders\":true,\"expiryWarnings\":true,\"lowBalance\":true,\"violations\":true,\"promotions\":false}")
-  createdAt               DateTime            @default(now())
-  updatedAt               DateTime            @updatedAt
+  locale                  String               @default("en")
+  role                    Role                 @default(USER)
+  status                  UserStatus           @default(ACTIVE)
+  notificationPreferences Json                 @default("{\"parkingReminders\":true,\"expiryWarnings\":true,\"lowBalance\":true,\"violations\":true,\"promotions\":false}")
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
   lastLoginAt             DateTime?
   refreshTokens           RefreshToken[]
   vehicles                UserVehicle[]
@@ -184,6 +187,11 @@ model User {
   audits                  AuditLog[]
   idempotencies           IdempotencyRecord[]
   parkingReservations     ParkingReservation[]
+  gender                  String?
+  ridesOffered            Ride[]
+  rideBookings            RideBooking[]
+  hostedSpots             HostSpot[]
+  spotBookings            SpotBooking[]
 
   @@map("users")
 }
@@ -300,7 +308,9 @@ model ParkingZone {
   accessRestrictionAr   String?
   parkingAllowed        Boolean                @default(true)
   prototypeData         Boolean                @default(false)
-  /** Reserved spaces for drivers with a disability permit — 0 when none are marked. */
+  /**
+   * Reserved spaces for drivers with a disability permit — 0 when none are marked.
+   */
   accessibleSpots       Int                    @default(0)
   capacity              Int?
   active                Boolean                @default(true)
@@ -317,6 +327,13 @@ model ParkingZone {
   violations            Violation[]
   permits               PermitZone[]
   reservations          ParkingReservation[]
+  /// Overstay rules, set per lot by its operator (minutes / minor units).
+  overstayGraceMinutes  Int                    @default(10)
+  overstayFee           Int                    @default(5000)
+  overstayRepeatMinutes Int                    @default(60)
+  overstayMaxPerStay    Int                    @default(20000)
+  visits                ParkingVisit[]
+  gateDevices           GateDevice[]
 
   @@index([latitude, longitude])
   @@map("parking_zones")
@@ -548,8 +565,12 @@ model Violation {
   evidence             ViolationEvidence?
   appeals              Appeal[]
   transactions         WalletTransaction[]
+  /// Set when the overstay checker issued this from a gate entry/exit record.
+  parkingVisitId       String?
+  visit                ParkingVisit?       @relation(fields: [parkingVisitId], references: [id])
 
   @@index([vehicleId, status])
+  @@index([parkingVisitId])
   @@map("violations")
 }
 
@@ -653,14 +674,14 @@ model PermitZone {
 }
 
 model RoadCheckpoint {
-  id        String       @id @default(uuid())
+  id        String             @id @default(uuid())
   nameAr    String
   nameEn    String
   latitude  Float
   longitude Float
-  active    Boolean      @default(true)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  active    Boolean            @default(true)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
   reports   CheckpointReport[]
 
   @@map("road_checkpoints")
@@ -683,22 +704,22 @@ model CheckpointReport {
 }
 
 model RoadReport {
-  id                String             @id @default(uuid())
+  id                String              @id @default(uuid())
   reporterUserId    String
-  reporter          User               @relation(fields: [reporterUserId], references: [id])
+  reporter          User                @relation(fields: [reporterUserId], references: [id])
   type              RoadReportType
   latitude          Float
   longitude         Float
   direction         RoadDirection?
   severity          RoadReportSeverity?
   description       String?
-  status            RoadReportStatus   @default(unverified)
-  confidenceScore   Float              @default(0.35)
-  confirmationCount Int                @default(0)
-  rejectionCount    Int                @default(0)
-  isDemo            Boolean            @default(false)
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  status            RoadReportStatus    @default(unverified)
+  confidenceScore   Float               @default(0.35)
+  confirmationCount Int                 @default(0)
+  rejectionCount    Int                 @default(0)
+  isDemo            Boolean             @default(false)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
   expiresAt         DateTime
   votes             RoadReportVote[]
   points            PointsEntry[]
@@ -753,22 +774,22 @@ model AvailabilitySnapshot {
 }
 
 model PointsEntry {
-  id              String         @id @default(uuid())
-  userId          String
-  user            User           @relation(fields: [userId], references: [id])
-  points          Int
-  reason          String
-  state           PointsState    @default(pending)
-  placeId         String
-  roadReportId    String?
-  roadReport      CheckpointReport? @relation(fields: [roadReportId], references: [id])
-  parkingReportId String?
-  parkingReport   ParkingReport? @relation(fields: [parkingReportId], references: [id])
+  id               String            @id @default(uuid())
+  userId           String
+  user             User              @relation(fields: [userId], references: [id])
+  points           Int
+  reason           String
+  state            PointsState       @default(pending)
+  placeId          String
+  roadReportId     String?
+  roadReport       CheckpointReport? @relation(fields: [roadReportId], references: [id])
+  parkingReportId  String?
+  parkingReport    ParkingReport?    @relation(fields: [parkingReportId], references: [id])
   /// A map incident (accident, closure, hazard…), separate from checkpoint reports above.
   incidentReportId String?
-  incidentReport  RoadReport?    @relation(fields: [incidentReportId], references: [id])
-  createdAt       DateTime       @default(now())
-  verifiedAt      DateTime?
+  incidentReport   RoadReport?       @relation(fields: [incidentReportId], references: [id])
+  createdAt        DateTime          @default(now())
+  verifiedAt       DateTime?
 
   @@index([userId, placeId, createdAt])
   @@index([state, createdAt])
@@ -892,23 +913,23 @@ enum TourismPlaceCategory {
 }
 
 model EvChargingStation {
-  id               String @id @default(uuid())
-  name             String @db.VarChar(160)
-  operatorName     String? @db.VarChar(160)
+  id               String          @id @default(uuid())
+  name             String          @db.VarChar(160)
+  operatorName     String?         @db.VarChar(160)
   latitude         Float
   longitude        Float
-  address          String? @db.VarChar(300)
-  city             String? @db.VarChar(100)
+  address          String?         @db.VarChar(300)
+  city             String?         @db.VarChar(100)
   status           EvStationStatus @default(unknown)
-  accessType       EvAccessType @default(unknown)
-  pricingText      String? @db.VarChar(500)
-  openingHoursText String? @db.VarChar(300)
-  phone            String? @db.VarChar(32)
-  sourceName       String? @db.VarChar(200)
-  sourceUrl        String? @db.VarChar(2048)
+  accessType       EvAccessType    @default(unknown)
+  pricingText      String?         @db.VarChar(500)
+  openingHoursText String?         @db.VarChar(300)
+  phone            String?         @db.VarChar(32)
+  sourceName       String?         @db.VarChar(200)
+  sourceUrl        String?         @db.VarChar(2048)
   lastVerifiedAt   DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
   connectors       EvConnector[]
 
   @@index([latitude, longitude])
@@ -918,7 +939,7 @@ model EvChargingStation {
 }
 
 model EvConnector {
-  id        String @id @default(uuid())
+  id        String            @id @default(uuid())
   stationId String
   station   EvChargingStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
   type      EvConnectorType
@@ -930,31 +951,31 @@ model EvConnector {
 }
 
 model CarServiceBusiness {
-  id                 String                 @id @db.VarChar(120)
-  nameAr             String                 @db.VarChar(200)
-  nameEn             String                 @db.VarChar(200)
+  id                 String                   @id @db.VarChar(120)
+  nameAr             String                   @db.VarChar(200)
+  nameEn             String                   @db.VarChar(200)
   latitude           Float?
   longitude          Float?
-  mapReady           Boolean                @default(false)
-  coordinateAccuracy String                 @db.VarChar(80)
-  coordinateNoteAr   String?                @db.VarChar(500)
-  coordinateNoteEn   String?                @db.VarChar(500)
-  addressAr          String?                @db.VarChar(300)
-  addressEn          String?                @db.VarChar(300)
-  phone              String?                @db.VarChar(32)
-  website            String?                @db.VarChar(2048)
-  openingHoursText   String?                @db.VarChar(300)
+  mapReady           Boolean                  @default(false)
+  coordinateAccuracy String                   @db.VarChar(80)
+  coordinateNoteAr   String?                  @db.VarChar(500)
+  coordinateNoteEn   String?                  @db.VarChar(500)
+  addressAr          String?                  @db.VarChar(300)
+  addressEn          String?                  @db.VarChar(300)
+  phone              String?                  @db.VarChar(32)
+  website            String?                  @db.VarChar(2048)
+  openingHoursText   String?                  @db.VarChar(300)
   servicesAr         String[]
   servicesEn         String[]
   pricing            Json?
-  operatingStatus    String                 @db.VarChar(80)
-  verificationStatus String                 @db.VarChar(80)
-  sourceName         String                 @db.VarChar(200)
-  sourceUrl          String                 @db.VarChar(2048)
-  secondarySourceUrl String?                @db.VarChar(2048)
+  operatingStatus    String                   @db.VarChar(80)
+  verificationStatus String                   @db.VarChar(80)
+  sourceName         String                   @db.VarChar(200)
+  sourceUrl          String                   @db.VarChar(2048)
+  secondarySourceUrl String?                  @db.VarChar(2048)
   lastCheckedAt      DateTime
-  createdAt          DateTime               @default(now())
-  updatedAt          DateTime               @updatedAt
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
   categories         CarServiceCategoryLink[]
 
   @@index([latitude, longitude])
@@ -963,7 +984,7 @@ model CarServiceBusiness {
 }
 
 model CarServiceCategoryLink {
-  businessId String @db.VarChar(120)
+  businessId String             @db.VarChar(120)
   category   CarServiceCategory
   business   CarServiceBusiness @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
@@ -973,45 +994,45 @@ model CarServiceCategoryLink {
 }
 
 model TourismPlace {
-  id                         String                      @id @db.VarChar(120)
-  nameAr                     String                      @db.VarChar(200)
-  nameEn                     String                      @db.VarChar(200)
-  primaryCategory            TourismPlaceCategory
-  descriptionAr              String?                     @db.VarChar(1000)
-  cityAr                     String?                     @db.VarChar(100)
-  regionAr                   String?                     @db.VarChar(120)
-  addressAr                  String?                     @db.VarChar(300)
-  latitude                   Float?
-  longitude                  Float?
-  mapReady                   Boolean                     @default(false)
-  coordinateReferenceSystem  String?                     @db.VarChar(40)
-  coordinateSourceUrl        String?                     @db.VarChar(2048)
-  locationStatus             String                      @db.VarChar(80)
-  coordinateMeaning          String?                     @db.VarChar(120)
-  locationNoteAr             String?                     @db.VarChar(700)
-  navigationEntrance         Json?
-  fieldVerified              Boolean                     @default(false)
-  openingHours               Json?
-  entryFee                   Json?
-  isFreeEntry                Boolean?
-  publicAccessConfirmed      Boolean?
-  phone                      String?                     @db.VarChar(32)
-  email                      String?                     @db.VarChar(254)
-  website                    String?                     @db.VarChar(2048)
-  imageUrl                   String?                     @db.VarChar(2048)
-  sourceImageUrl             String?                     @db.VarChar(2048)
-  imageLicense               String?                     @db.VarChar(300)
-  imageUsageRightsVerified   Boolean                     @default(false)
-  accessibility              Json?
-  toiletsAvailable           Boolean?
-  parkingAvailable           Boolean?
-  nearbyParkingIds           String[]
-  officialSourceId           Int?
-  sources                    Json
-  sourcesCheckedOn           DateTime
-  createdAt                  DateTime                    @default(now())
-  updatedAt                  DateTime                    @updatedAt
-  categories                 TourismPlaceCategoryLink[]
+  id                        String                     @id @db.VarChar(120)
+  nameAr                    String                     @db.VarChar(200)
+  nameEn                    String                     @db.VarChar(200)
+  primaryCategory           TourismPlaceCategory
+  descriptionAr             String?                    @db.VarChar(1000)
+  cityAr                    String?                    @db.VarChar(100)
+  regionAr                  String?                    @db.VarChar(120)
+  addressAr                 String?                    @db.VarChar(300)
+  latitude                  Float?
+  longitude                 Float?
+  mapReady                  Boolean                    @default(false)
+  coordinateReferenceSystem String?                    @db.VarChar(40)
+  coordinateSourceUrl       String?                    @db.VarChar(2048)
+  locationStatus            String                     @db.VarChar(80)
+  coordinateMeaning         String?                    @db.VarChar(120)
+  locationNoteAr            String?                    @db.VarChar(700)
+  navigationEntrance        Json?
+  fieldVerified             Boolean                    @default(false)
+  openingHours              Json?
+  entryFee                  Json?
+  isFreeEntry               Boolean?
+  publicAccessConfirmed     Boolean?
+  phone                     String?                    @db.VarChar(32)
+  email                     String?                    @db.VarChar(254)
+  website                   String?                    @db.VarChar(2048)
+  imageUrl                  String?                    @db.VarChar(2048)
+  sourceImageUrl            String?                    @db.VarChar(2048)
+  imageLicense              String?                    @db.VarChar(300)
+  imageUsageRightsVerified  Boolean                    @default(false)
+  accessibility             Json?
+  toiletsAvailable          Boolean?
+  parkingAvailable          Boolean?
+  nearbyParkingIds          String[]
+  officialSourceId          Int?
+  sources                   Json
+  sourcesCheckedOn          DateTime
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  categories                TourismPlaceCategoryLink[]
 
   @@index([latitude, longitude])
   @@index([mapReady, latitude, longitude])
@@ -1038,4 +1059,171 @@ model OutboxEvent {
 
   @@index([deliveredAt, createdAt])
   @@map("outbox_events")
+}
+
+enum RideStatus {
+  open
+  cancelled
+  completed
+}
+
+enum RideBookingStatus {
+  pending
+  accepted
+  declined
+  cancelled
+  completed
+}
+
+/// A driver going from one city to another, sharing fuel costs with passengers.
+model Ride {
+  id           String        @id @default(uuid())
+  driverId     String
+  driver       User          @relation(fields: [driverId], references: [id])
+  vehicleId    String
+  fromCity     String
+  toCity       String
+  meetingPoint String
+  departAt     DateTime
+  seatsTotal   Int
+  pricePerSeat Int
+  womenOnly    Boolean       @default(false)
+  notes        String?
+  status       RideStatus    @default(open)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  bookings     RideBooking[]
+
+  @@index([status, departAt])
+  @@index([driverId, departAt])
+  @@map("rides")
+}
+
+model RideBooking {
+  id              String            @id @default(uuid())
+  rideId          String
+  ride            Ride              @relation(fields: [rideId], references: [id])
+  passengerId     String
+  passenger       User              @relation(fields: [passengerId], references: [id])
+  seats           Int
+  amount          Int
+  status          RideBookingStatus @default(pending)
+  /// Rating the passenger gave the driver (1-5).
+  driverRating    Int?
+  /// Rating the driver gave the passenger (1-5).
+  passengerRating Int?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([rideId, status])
+  @@index([passengerId, createdAt])
+  @@map("ride_bookings")
+}
+
+enum SpotBookingStatus {
+  pending
+  confirmed
+  declined
+  cancelled
+  active
+  completed
+}
+
+/// A private parking space a resident rents out (driveway, yard, garage).
+model HostSpot {
+  id            String        @id @default(uuid())
+  hostId        String
+  host          User          @relation(fields: [hostId], references: [id])
+  title         String
+  description   String?
+  city          String
+  /// Shown to everyone: neighbourhood or nearby landmark only.
+  areaHint      String
+  /// Shown only to drivers with a confirmed booking.
+  fullAddress   String
+  latitude      Float
+  longitude     Float
+  vehicleSize   String        @default("car")
+  covered       Boolean       @default(false)
+  hourlyRate    Int
+  dailyRate     Int?
+  /// 0 = Sunday … 6 = Saturday.
+  weekdays      Int[]
+  availableFrom String
+  availableTo   String
+  instantBook   Boolean       @default(false)
+  active        Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  bookings      SpotBooking[]
+
+  @@index([active, city])
+  @@index([hostId])
+  @@map("host_spots")
+}
+
+model SpotBooking {
+  id           String            @id @default(uuid())
+  spotId       String
+  spot         HostSpot          @relation(fields: [spotId], references: [id])
+  driverId     String
+  driver       User              @relation(fields: [driverId], references: [id])
+  startTime    DateTime
+  endTime      DateTime
+  amount       Int
+  status       SpotBookingStatus @default(pending)
+  hostRating   Int?
+  driverRating Int?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([spotId, startTime, endTime])
+  @@index([driverId, startTime])
+  @@index([status, endTime])
+  @@map("spot_bookings")
+}
+
+/// One car's stay in a lot, from the entry event to the exit event.
+model ParkingVisit {
+  id            String      @id @default(uuid())
+  parkingZoneId String
+  zone          ParkingZone @relation(fields: [parkingZoneId], references: [id])
+  /// Digits only, the same normalisation vehicles use.
+  plateNumber   String
+  /// Null when the plate is not registered in ParkFlow.
+  vehicleId     String?
+  enteredAt     DateTime
+  exitedAt      DateTime?
+  /// camera | qr | manual
+  entrySource   String
+  exitSource    String?
+  entryDeviceId String?
+  exitDeviceId  String?
+  /// Session started automatically by a QR gate scan, stopped again on exit.
+  sessionId     String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  violations    Violation[]
+
+  @@index([parkingZoneId, exitedAt])
+  @@index([plateNumber, exitedAt])
+  @@index([exitedAt])
+  @@map("parking_visits")
+}
+
+/// A plate camera or QR scanner at a lot's gate. Cameras authenticate with a key.
+model GateDevice {
+  id            String      @id @default(uuid())
+  parkingZoneId String
+  zone          ParkingZone @relation(fields: [parkingZoneId], references: [id])
+  name          String
+  /// camera | qr_scanner
+  kind          String
+  keyHash       String      @unique
+  active        Boolean     @default(true)
+  lastSeenAt    DateTime?
+  createdAt     DateTime    @default(now())
+
+  @@index([parkingZoneId])
+  @@map("gate_devices")
 }

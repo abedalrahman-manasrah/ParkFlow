@@ -28,7 +28,7 @@ type Filter = 'all' | 'parking' | 'payments' | 'violations';
 const FILTER_TYPES: Record<Filter, TransactionType[] | undefined> = {
   all: undefined,
   parking: ['parking_payment'],
-  payments: ['topup', 'refund', 'adjustment', 'reward'],
+  payments: ['topup', 'refund', 'adjustment', 'reward', 'ride_payment', 'spot_payment', 'earning'],
   violations: ['violation_payment'],
 };
 
