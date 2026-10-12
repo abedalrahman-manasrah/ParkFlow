@@ -30,6 +30,7 @@ import { haptics } from '@/utils/haptics';
 import { ensureCallPermission } from '@/utils/emergencyCall';
 import { useEmergencyConfig } from '@/hooks/useCrashDetection';
 import { useCrashAlertStore } from '@/store/crashAlertStore';
+import { nativeCrashDetection } from '@/utils/crashDetectionNative';
 
 const THEME_ICONS: Record<ThemeMode, typeof Sun> = {
   light: Sun,
@@ -63,6 +64,15 @@ export default function SettingsScreen() {
   const setCrashDetection = usePreferencesStore((s) => s.setCrashDetection);
   const { data: emergencyConfig } = useEmergencyConfig();
   const raiseCrashAlert = useCrashAlertStore((s) => s.raise);
+
+  // On Android builds the background service owns the alert; elsewhere the in-app countdown does.
+  const simulateCrash = () => {
+    if (nativeCrashDetection?.simulate()) return;
+    raiseCrashAlert({
+      detection: { impactAt: Date.now(), peakG: 0, rotationDeg: 0, speedKmh: 0, reason: 'rollover' },
+      detectedAt: new Date().toISOString(),
+    });
+  };
 
   const toggleCrashDetection = (enabled: boolean) => {
     setCrashDetection(enabled);
@@ -210,12 +220,7 @@ export default function SettingsScreen() {
                   label={t('crash.test')}
                   variant="secondary"
                   size="sm"
-                  onPress={() =>
-                    raiseCrashAlert({
-                      detection: { impactAt: Date.now(), peakG: 0, rotationDeg: 0, speedKmh: 0, reason: 'rollover' },
-                      detectedAt: new Date().toISOString(),
-                    })
-                  }
+                  onPress={simulateCrash}
                 />
               ) : null}
             </Card>

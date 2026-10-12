@@ -22,6 +22,8 @@ interface PreferencesState {
   voiceLanguage: 'ar' | 'en';
   /** Watch for crashes while driving and call for help if the driver does not answer. */
   crashDetection: boolean;
+  /** Notification and call permissions are asked once, the first time crash detection turns on. */
+  crashPermissionsAsked: boolean;
   /** True once persisted preferences have been read — describes this run only. */
   hydrated: boolean;
 
@@ -33,6 +35,7 @@ interface PreferencesState {
   setVoiceAlerts: (enabled: boolean) => void;
   setVoiceLanguage: (language: 'ar' | 'en') => void;
   setCrashDetection: (enabled: boolean) => void;
+  markCrashPermissionsAsked: () => void;
   setHydrated: () => void;
   reset: () => void;
 }
@@ -57,6 +60,7 @@ export const usePreferencesStore = create<PreferencesState>()(
       voiceAlerts: false,
       voiceLanguage: 'ar',
       crashDetection: true,
+      crashPermissionsAsked: false,
       hydrated: false,
 
       setLocale: (locale) => set({ locale, localeChosen: true }),
@@ -68,6 +72,7 @@ export const usePreferencesStore = create<PreferencesState>()(
       setVoiceAlerts: (voiceAlerts) => set({ voiceAlerts }),
       setVoiceLanguage: (voiceLanguage) => set({ voiceLanguage }),
       setCrashDetection: (crashDetection) => set({ crashDetection }),
+      markCrashPermissionsAsked: () => set({ crashPermissionsAsked: true }),
       setHydrated: () => set({ hydrated: true }),
       reset: () =>
         set({
@@ -105,6 +110,7 @@ export const usePreferencesStore = create<PreferencesState>()(
         voiceAlerts: state.voiceAlerts,
         voiceLanguage: state.voiceLanguage,
         crashDetection: state.crashDetection,
+        crashPermissionsAsked: state.crashPermissionsAsked,
       }),
       onRehydrateStorage: () => (state) => state?.setHydrated(),
     },
