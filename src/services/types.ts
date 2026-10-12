@@ -17,6 +17,7 @@ import type {
   ParkingZone,
   PaymentMethod,
   Permit,
+  AwardedPoints,
   PointsEntry,
   ReportedAvailability,
   RoadFeedItem,
@@ -219,12 +220,12 @@ export interface RoadService {
     userId: string;
     checkpointId: string;
     status: CheckpointStatus;
-  }): Promise<{ event: RoadFeedItem; points?: PointsEntry }>;
+  }): Promise<{ event: RoadFeedItem; points?: AwardedPoints }>;
   reportZone(input: {
     userId: string;
     zoneId: string;
     availability: ReportedAvailability;
-  }): Promise<{ report: ZoneReport; points?: PointsEntry }>;
+  }): Promise<{ report: ZoneReport; points?: AwardedPoints }>;
 }
 
 export interface RoadReportService {

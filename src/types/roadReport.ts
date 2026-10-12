@@ -1,3 +1,4 @@
+import type { AppNotification } from './notification';
 import type { GeoPoint, ID, ISODateString } from './common';
 
 export const ROAD_REPORT_TYPES = [
@@ -57,6 +58,13 @@ export interface CreateRoadReportResult {
   duplicate: boolean;
   confirmationAdded: boolean;
   /** Pending points for a brand-new report; null for duplicates or past the daily cap. */
-  points?: { id: string; points: number; state: 'pending'; rewardMinor: number } | null;
+  points?: {
+    id: string;
+    points: number;
+    state: 'pending';
+    rewardMinor: number;
+    /** The "you earned points" notification, shown on screen straight away. */
+    notification?: AppNotification | null;
+  } | null;
   report: RoadReport;
 }

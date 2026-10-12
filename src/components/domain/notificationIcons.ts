@@ -25,6 +25,7 @@ export const NOTIFICATION_ICONS: Record<NotificationType, typeof Bell> = {
   violation_issued: ScrollText,
   appeal_updated: Gavel,
   points_awarded: Gift,
+  reward_paid: WalletIcon,
   system: Bell,
 };
 

@@ -31,13 +31,40 @@ export async function awardIncidentReport(tx: Tx, userId: string, reportId: stri
   const entry = await tx.pointsEntry.create({
     data: { userId, placeId: reportId, reason: 'incident_report', points, incidentReportId: reportId },
   });
-  return { id: entry.id, points: entry.points, state: entry.state, rewardMinor: points * rewardPerPoint() };
+  const notification = await announcePoints(tx, entry);
+  return { id: entry.id, points: entry.points, state: entry.state, rewardMinor: points * rewardPerPoint(), notification };
+}
+
+/**
+ * Tells the reporter the moment a report earns points. The money follows once
+ * the report is confirmed (see settlePoints), so the note says so up front.
+ */
+export async function announcePoints(tx: Tx, entry: PointsEntry) {
+  const amount = entry.points * rewardPerPoint();
+  const notification = await notify(
+    tx,
+    entry.userId,
+    'points_awarded',
+    `You earned ${entry.points} points`,
+    `حصلت على ${pointsAr(entry.points)}`,
+    amount > 0
+      ? `Thanks for your report. ${formatShekels(amount)} goes to your wallet once it is confirmed.`
+      : 'Thanks for your report.',
+    amount > 0
+      ? `شكراً على بلاغك. ستُضاف ${formatShekels(amount)} إلى محفظتك بعد تأكيده.`
+      : 'شكراً على بلاغك.',
+    '/profile/points',
+    `points-awarded:${entry.id}`,
+  );
+  await event(tx, 'trust.updated', {}, entry.userId);
+  // Returned with the report so the app can show it at once, without waiting on the socket.
+  return notification ?? null;
 }
 
 /**
  * Moves a pending entry to verified or revoked exactly once. Verified points are
- * paid into the wallet and announced with a notification in the same transaction,
- * so a driver never sees points without the money or the money without the note.
+ * paid into the wallet and announced with a second notification in the same
+ * transaction, so the money and its note always arrive together.
  */
 export async function settlePoints(tx: Tx, entry: PointsEntry, verified: boolean, now = new Date()) {
   const changed = await tx.pointsEntry.updateMany({
@@ -58,22 +85,18 @@ export async function settlePoints(tx: Tx, entry: PointsEntry, verified: boolean
         subtitleAr: pointsAr(entry.points),
         reference: `points-reward:${entry.id}`,
       });
+      await notify(
+        tx,
+        entry.userId,
+        'reward_paid',
+        `${formatShekels(amount)} added to your wallet`,
+        `تمت إضافة ${formatShekels(amount)} إلى محفظتك`,
+        `Your report was confirmed and your ${entry.points} points were paid out.`,
+        `تم تأكيد بلاغك وتحويل ${pointsAr(entry.points)} إلى رصيد.`,
+        '/wallet',
+        `reward-paid:${entry.id}`,
+      );
     }
-    await notify(
-      tx,
-      entry.userId,
-      'points_awarded',
-      `You earned ${entry.points} points`,
-      `حصلت على ${pointsAr(entry.points)}`,
-      amount > 0
-        ? `${formatShekels(amount)} was added to your wallet. Thanks for keeping drivers informed.`
-        : 'Thanks for keeping drivers informed.',
-      amount > 0
-        ? `تمت إضافة ${formatShekels(amount)} إلى محفظتك. شكراً لمساعدتك السائقين.`
-        : 'شكراً لمساعدتك السائقين.',
-      '/profile/points',
-      `points-awarded:${entry.id}`,
-    );
   }
   await event(tx, 'trust.updated', {}, entry.userId);
 }

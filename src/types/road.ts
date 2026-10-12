@@ -1,3 +1,4 @@
+import type { AppNotification } from './notification';
 import type { GeoPoint, ID, ISODateString } from './common';
 import type { AvailabilityLevel } from './parking';
 
@@ -69,6 +70,9 @@ export interface PointsEntry {
   refId: ID;
   createdAt: ISODateString;
 }
+
+/** Points just earned, with the notification announcing them (null when none was sent). */
+export type AwardedPoints = PointsEntry & { notification?: AppNotification | null };
 
 export type TrustTier = 'bronze' | 'silver' | 'gold' | 'platinum';
 

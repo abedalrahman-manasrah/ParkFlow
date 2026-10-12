@@ -46,7 +46,6 @@ import { useCheckpoints, useRoute } from '@/hooks/useCommunity';
 import { useUnreadNotificationCount } from '@/hooks/useNotifications';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useCreateRoadReport, useRoadReports } from '@/hooks/useRoadReports';
-import { formatMoney } from '@/utils/money';
 import { DEFAULT_REGION, services } from '@/services';
 import type { CreateRoadReportInput, GeoPoint, GeoRegion, ParkingZone, RamallahParkingLocation, RoadReport, RoadReportType, RouteResult } from '@/types';
 import { distanceMeters, distanceToPolyline } from '@/utils/geo';
@@ -1034,11 +1033,6 @@ export default function MapScreen() {
           setLocationMessage(t(result.confirmationAdded
             ? 'roadReports.duplicateConfirmed'
             : 'roadReports.duplicateActive'));
-        } else if (result.points) {
-          setLocationMessage(t('roadReports.createdWithPoints', {
-            points: result.points.points,
-            amount: formatMoney(result.points.rewardMinor),
-          }));
         } else {
           setLocationMessage(t('roadReports.created'));
         }

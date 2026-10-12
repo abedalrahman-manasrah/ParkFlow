@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { View } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { X } from 'lucide-react-native';
 
 import { AppText } from '@/components/ui/AppText';
@@ -43,7 +43,7 @@ export function NotificationBanner() {
   if (!notification) return null;
 
   const Icon = NOTIFICATION_ICONS[notification.type] ?? NOTIFICATION_ICONS.system;
-  const reward = notification.type === 'points_awarded';
+  const reward = notification.type === 'points_awarded' || notification.type === 'reward_paid';
   const title = locale === 'ar' ? notification.titleAr : notification.title;
   const body = locale === 'ar' ? notification.bodyAr : notification.body;
 
@@ -56,8 +56,8 @@ export function NotificationBanner() {
   return (
     <Animated.View
       key={notification.id}
+      // No exit animation: on web it can stall and leave the banner stuck on screen.
       entering={FadeInUp.duration(260)}
-      exiting={FadeOutUp.duration(200)}
       pointerEvents="box-none"
       style={{
         position: 'absolute',
