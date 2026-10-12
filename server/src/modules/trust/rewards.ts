@@ -48,10 +48,10 @@ export async function announcePoints(tx: Tx, entry: PointsEntry) {
     `You earned ${entry.points} points`,
     `حصلت على ${pointsAr(entry.points)}`,
     amount > 0
-      ? `Thanks for your report. ${formatShekels(amount)} goes to your wallet once it is confirmed.`
+      ? `Thanks for your report. When other drivers in the same area confirm it, ${formatShekels(amount)} is added to your wallet.`
       : 'Thanks for your report.',
     amount > 0
-      ? `شكراً على بلاغك. ستُضاف ${formatShekels(amount)} إلى محفظتك بعد تأكيده.`
+      ? `شكراً على بلاغك. عندما يؤكده سائقون آخرون في نفس المنطقة، تُضاف ${formatShekels(amount)} إلى محفظتك.`
       : 'شكراً على بلاغك.',
     '/profile/points',
     `points-awarded:${entry.id}`,

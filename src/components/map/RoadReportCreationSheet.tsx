@@ -1,8 +1,9 @@
 import { Pressable, ScrollView, View } from 'react-native';
-import { Check } from 'lucide-react-native';
+import { Check, Gift } from 'lucide-react-native';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppText } from '@/components/ui/AppText';
 import { BottomSheet } from '@/components/ui/BottomSheet';
+import { InlineNotice } from '@/components/ui/InlineNotice';
 import { TextField } from '@/components/ui/TextField';
 import { ReportIcon, roadReportColor } from './RoadReportMarker';
 import { useLocale } from '@/hooks/useLocale';
@@ -85,6 +86,12 @@ export function RoadReportCreationSheet(props: Props) {
               {draft.description ? <AppText color="textSecondary">{draft.description}</AppText> : null}
               <AppText variant="caption" color="textTertiary">{Number(draft.latitude).toFixed(5)}, {Number(draft.longitude).toFixed(5)}</AppText>
             </View>
+            <InlineNotice
+              tone="success"
+              icon={<Gift size={18} color={colors.successText} strokeWidth={2.2} />}
+              title={t('roadReports.pointsHintTitle')}
+              body={t('roadReports.pointsHintBody')}
+            />
             {props.error ? <AppText color="danger" accessibilityLiveRegion="polite">{props.error}</AppText> : null}
             <View style={{ flexDirection: row, gap: spacing.sm }}>
               <AppButton label={t('common.back')} onPress={() => props.onStepChange('details')} variant="secondary" style={{ flex: 1 }} />
