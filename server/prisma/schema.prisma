@@ -175,6 +175,7 @@ model User {
   roadReportVotes         RoadReportVote[]
   parkingReports          ParkingReport[]
   points                  PointsEntry[]
+  crashEvents             CrashEvent[]
   trust                   TrustProfile?
   notifications           Notification[]
   deviceTokens            DeviceToken[]
@@ -1038,4 +1039,30 @@ model OutboxEvent {
 
   @@index([deliveredAt, createdAt])
   @@map("outbox_events")
+}
+
+enum CrashEventOutcome {
+  cancelled
+  called
+  call_failed
+  no_number
+}
+
+/// A possible crash detected on the driver's phone, and what happened next.
+model CrashEvent {
+  id          String            @id @default(uuid())
+  userId      String
+  user        User              @relation(fields: [userId], references: [id])
+  detectedAt  DateTime
+  latitude    Float?
+  longitude   Float?
+  speedKmh    Float?
+  peakG       Float
+  rotationDeg Float?
+  outcome     CrashEventOutcome
+  calledNumber String?
+  createdAt   DateTime          @default(now())
+
+  @@index([userId, detectedAt])
+  @@map("crash_events")
 }

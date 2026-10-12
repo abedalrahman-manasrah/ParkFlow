@@ -20,6 +20,8 @@ interface PreferencesState {
   voiceAlerts: boolean;
   /** Language the microphone listens in. Separate from the app language. */
   voiceLanguage: 'ar' | 'en';
+  /** Watch for crashes while driving and call for help if the driver does not answer. */
+  crashDetection: boolean;
   /** True once persisted preferences have been read — describes this run only. */
   hydrated: boolean;
 
@@ -30,6 +32,7 @@ interface PreferencesState {
   completeOnboarding: () => void;
   setVoiceAlerts: (enabled: boolean) => void;
   setVoiceLanguage: (language: 'ar' | 'en') => void;
+  setCrashDetection: (enabled: boolean) => void;
   setHydrated: () => void;
   reset: () => void;
 }
@@ -53,6 +56,7 @@ export const usePreferencesStore = create<PreferencesState>()(
       onboardingComplete: false,
       voiceAlerts: false,
       voiceLanguage: 'ar',
+      crashDetection: true,
       hydrated: false,
 
       setLocale: (locale) => set({ locale, localeChosen: true }),
@@ -63,6 +67,7 @@ export const usePreferencesStore = create<PreferencesState>()(
       completeOnboarding: () => set({ onboardingComplete: true }),
       setVoiceAlerts: (voiceAlerts) => set({ voiceAlerts }),
       setVoiceLanguage: (voiceLanguage) => set({ voiceLanguage }),
+      setCrashDetection: (crashDetection) => set({ crashDetection }),
       setHydrated: () => set({ hydrated: true }),
       reset: () =>
         set({
@@ -99,6 +104,7 @@ export const usePreferencesStore = create<PreferencesState>()(
         onboardingComplete: state.onboardingComplete,
         voiceAlerts: state.voiceAlerts,
         voiceLanguage: state.voiceLanguage,
+        crashDetection: state.crashDetection,
       }),
       onRehydrateStorage: () => (state) => state?.setHydrated(),
     },

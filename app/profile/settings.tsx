@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/services/http/apiClient';
 import { useUserId } from '@/hooks/useSession';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { Check, Languages, Moon, Sun, SunMoon } from 'lucide-react-native';
 
 import {
+  AppButton,
   AppHeader,
   AppText,
   Card,
@@ -26,6 +27,9 @@ import { LOCALES, localeNames, type Locale } from '@/i18n';
 import type { NotificationPreferences } from '@/types';
 import { errorMessage } from '@/utils/errors';
 import { haptics } from '@/utils/haptics';
+import { ensureCallPermission } from '@/utils/emergencyCall';
+import { useEmergencyConfig } from '@/hooks/useCrashDetection';
+import { useCrashAlertStore } from '@/store/crashAlertStore';
 
 const THEME_ICONS: Record<ThemeMode, typeof Sun> = {
   light: Sun,
@@ -55,6 +59,16 @@ export default function SettingsScreen() {
   const setVoiceAlerts = usePreferencesStore((s) => s.setVoiceAlerts);
   const voiceLanguage = usePreferencesStore((s) => s.voiceLanguage);
   const setVoiceLanguage = usePreferencesStore((s) => s.setVoiceLanguage);
+  const crashDetection = usePreferencesStore((s) => s.crashDetection);
+  const setCrashDetection = usePreferencesStore((s) => s.setCrashDetection);
+  const { data: emergencyConfig } = useEmergencyConfig();
+  const raiseCrashAlert = useCrashAlertStore((s) => s.raise);
+
+  const toggleCrashDetection = (enabled: boolean) => {
+    setCrashDetection(enabled);
+    // Asking now means the call can go through on its own later, when the driver may not be able to tap.
+    if (enabled) void ensureCallPermission();
+  };
 
   const themeOptions: ThemeMode[] = ['light', 'dark', 'system'];
 
@@ -174,6 +188,39 @@ export default function SettingsScreen() {
             />
           </Card>
         </View>
+
+        {/* ---- Safety ------------------------------------------------------ */}
+        {Platform.OS !== 'web' ? (
+          <View>
+            <SectionHeader title={t('crash.section')} />
+            <Card padding="lg" style={{ gap: spacing.md }}>
+              <SwitchRow
+                label={t('crash.setting')}
+                description={t('crash.settingBody')}
+                value={crashDetection}
+                onValueChange={toggleCrashDetection}
+              />
+              {emergencyConfig && !emergencyConfig.enabled ? (
+                <AppText variant="caption" color="textTertiary">
+                  {t('crash.notConfigured')}
+                </AppText>
+              ) : null}
+              {__DEV__ ? (
+                <AppButton
+                  label={t('crash.test')}
+                  variant="secondary"
+                  size="sm"
+                  onPress={() =>
+                    raiseCrashAlert({
+                      detection: { impactAt: Date.now(), peakG: 0, rotationDeg: 0, speedKmh: 0, reason: 'rollover' },
+                      detectedAt: new Date().toISOString(),
+                    })
+                  }
+                />
+              ) : null}
+            </Card>
+          </View>
+        ) : null}
 
         {/* ---- Notifications ---------------------------------------------- */}
         <View style={{ gap: spacing.sm }}>

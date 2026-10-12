@@ -252,6 +252,12 @@ export interface TrustService {
   get(userId: string): Promise<TrustSummary>;
 }
 
+/** Crash calling config and the record of each detection. */
+export interface EmergencyService {
+  config(): Promise<import('../types/emergency').EmergencyConfig>;
+  recordCrash(input: import('../types/emergency').CrashEventInput): Promise<unknown>;
+}
+
 export interface Services {
   evStations: import('../types/evStation').EvStationApi;
   carServices: import('../types/carService').CarServiceApi;
@@ -268,6 +274,7 @@ export interface Services {
   roadReports: RoadReportService;
   routing: RoutingService;
   trust: TrustService;
+  emergency: EmergencyService;
 }
 
 export type { Vehicle, UserVehicleView };

@@ -15,3 +15,4 @@ export * from './tourismPlace';
 export * from './routeDestination';
 export * from './reservation';
 export * from './parkingLayout';
+export * from './emergency';
