@@ -4,7 +4,7 @@ const text = (max: number) => z.string().trim().min(1).max(max);
 const nullableText = (max: number) => z.string().trim().min(1).max(max).nullable().default(null);
 const coordinate = (max: number) => z.number().finite().min(-max).max(max);
 
-export const tourismPlaceCategory = z.enum(['historic_landmark', 'museum', 'park_garden', 'visitor_attraction']);
+export const tourismPlaceCategory = z.enum(['historic_landmark', 'museum', 'park_garden', 'visitor_attraction', 'family_rest', 'prayer_place']);
 export type TourismPlaceCategoryValue = z.infer<typeof tourismPlaceCategory>;
 
 const sourceUrl = z.string().trim().max(2048).url().refine((value) => {
@@ -17,7 +17,7 @@ const source = z.object({
   url: sourceUrl,
   publisher: text(200),
   type: text(80),
-  supports: z.array(text(80)).max(40),
+  supports: z.array(text(80)).max(40).default([]),
   accessedOn: z.iso.date(),
 }).passthrough();
 
@@ -63,7 +63,7 @@ export const tourismPlaceRecord = z.object({
   officialSourceId: z.number().int().positive().nullable().default(null),
   sources: z.array(source).min(1).max(10),
   sourcesCheckedOn: z.iso.date(),
-}).strict().superRefine((record, ctx) => {
+}).passthrough().superRefine((record, ctx) => {
   const categorySet = new Set(record.categories);
   if (!categorySet.has(record.primaryCategory)) {
     ctx.addIssue({ code: 'custom', path: ['primaryCategory'], message: 'Primary category must be included in categories' });

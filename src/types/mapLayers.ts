@@ -33,4 +33,4 @@ export const isCarServiceCategory = (value: unknown): value is CarServiceCategor
 
 export const isTourismPlaceCategory = (value: unknown): value is TourismPlaceCategory =>
   typeof value === 'string'
-  && ['historic_landmark', 'museum', 'park_garden', 'visitor_attraction'].includes(value);
+  && ['historic_landmark', 'museum', 'park_garden', 'visitor_attraction', 'family_rest', 'prayer_place'].includes(value);

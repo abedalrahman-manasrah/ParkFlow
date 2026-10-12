@@ -27,9 +27,10 @@ const errorKeys: Record<string, TranslationKey> = {
   WARNING_RATE_LIMITED: 'warning.rateLimited', RATE_LIMITED: 'warning.rateLimited',
   WARNING_TIMEOUT: 'warning.timeout', WARNING_PROVIDER_UNAVAILABLE: 'warning.unavailable',
   WARNING_MALFORMED: 'warning.malformed', UNAUTHORIZED: 'warning.signIn',
+  network: 'warning.network',
 };
 function warningError(error: unknown): TranslationKey {
-  const code = error instanceof AppError ? String(error.details?.serverCode ?? '') : error instanceof Error ? error.message : '';
+  const code = error instanceof AppError ? String(error.details?.serverCode ?? error.code) : error instanceof Error ? error.message : '';
   return errorKeys[code] ?? 'warning.failed';
 }
 

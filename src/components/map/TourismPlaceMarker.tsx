@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { View } from 'react-native';
-import { Landmark, Building2, Trees, MapPin } from 'lucide-react-native';
+import { Landmark, Building2, Trees, MapPin, UsersRound } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { shadow } from '@/theme/shadows';
 import type { TourismPlaceCategory } from '@/types';
@@ -11,6 +11,8 @@ const markerTone = (category: TourismPlaceCategory, colors: ReturnType<typeof us
     case 'museum': return colors.brand;
     case 'park_garden': return colors.success;
     case 'visitor_attraction': return colors.info;
+    case 'family_rest': return colors.success;
+    case 'prayer_place': return colors.brand;
   }
 };
 
@@ -21,6 +23,8 @@ const Icon = ({ category, color }: { category: TourismPlaceCategory; color: stri
     case 'museum': return <Building2 {...props} />;
     case 'park_garden': return <Trees {...props} />;
     case 'visitor_attraction': return <MapPin {...props} />;
+    case 'family_rest': return <UsersRound {...props} />;
+    case 'prayer_place': return <Building2 {...props} />;
   }
 };
 

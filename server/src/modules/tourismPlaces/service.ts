@@ -62,6 +62,26 @@ const CATEGORY_COUNTS: Record<TourismPlaceCategoryValue, number> = {
   museum: 0,
   park_garden: 0,
   visitor_attraction: 0,
+  family_rest: 0,
+  prayer_place: 0,
+};
+
+const normalizeDatasetInput = (raw: unknown) => {
+  if (!raw || typeof raw !== 'object' || !Array.isArray((raw as { places?: unknown }).places)) return raw;
+  return {
+    ...(raw as Record<string, unknown>),
+    places: ((raw as { places: Array<Record<string, unknown>> }).places).map((place) => ({
+      locationNoteAr: null,
+      email: null,
+      sourceImageUrl: null,
+      imageUsageRightsVerified: false,
+      officialSourceId: null,
+      ...place,
+      sources: Array.isArray(place.sources)
+        ? place.sources.map((source) => ({ supports: [], ...(source as Record<string, unknown>) }))
+        : place.sources,
+    })),
+  };
 };
 
 const validCoordinatePair = (row: Pick<TourismPlaceRow, 'latitude' | 'longitude'>) =>
@@ -125,7 +145,7 @@ export async function list(input: z.infer<typeof listInput>) {
 }
 
 export async function importTourismPlacesDataset(raw: unknown) {
-  const parsed = datasetInput.parse(raw);
+  const parsed = datasetInput.parse(normalizeDatasetInput(raw));
   const seenIds = new Set<string>();
   let mapReady = 0;
   const skipped: Array<{ id: string; reason: string }> = [];
@@ -147,7 +167,22 @@ export async function importTourismPlacesDataset(raw: unknown) {
       const existing = await tx.tourismPlace.findUnique({ where: { id: record.id } });
       if (existing) updated++;
       else created++;
-      const { categories, sourcesCheckedOn, active: _active, ...fields } = record;
+      const {
+        categories,
+        sourcesCheckedOn,
+        active: _active,
+        descriptionEn: _descriptionEn,
+        seatingAvailable: _seatingAvailable,
+        shadeAvailable: _shadeAvailable,
+        childrenPlayArea: _childrenPlayArea,
+        prayerAreaAvailable: _prayerAreaAvailable,
+        womenPrayerAreaAvailable: _womenPrayerAreaAvailable,
+        ablutionAvailable: _ablutionAvailable,
+        geocodingReview: _geocodingReview,
+        dataPolicyAr: _dataPolicyAr,
+        integrationNotesAr: _integrationNotesAr,
+        ...fields
+      } = record as typeof record & Record<string, unknown>;
       await tx.tourismPlace.upsert({
         where: { id: record.id },
         create: {

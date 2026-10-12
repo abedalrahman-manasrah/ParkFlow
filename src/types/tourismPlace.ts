@@ -1,4 +1,4 @@
-export const TOURISM_PLACE_CATEGORIES = ['historic_landmark', 'museum', 'park_garden', 'visitor_attraction'] as const;
+export const TOURISM_PLACE_CATEGORIES = ['historic_landmark', 'museum', 'park_garden', 'visitor_attraction', 'family_rest', 'prayer_place'] as const;
 export type TourismPlaceCategory = typeof TOURISM_PLACE_CATEGORIES[number];
 
 export interface TourismPlaceSource {

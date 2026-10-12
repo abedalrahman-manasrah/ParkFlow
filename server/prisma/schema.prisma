@@ -887,6 +887,8 @@ enum TourismPlaceCategory {
   museum
   park_garden
   visitor_attraction
+  family_rest
+  prayer_place
 }
 
 model EvChargingStation {
