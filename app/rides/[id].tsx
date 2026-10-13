@@ -24,7 +24,6 @@ import { useLocale } from '@/hooks/useLocale';
 import { useTheme } from '@/theme/ThemeProvider';
 import { spacing } from '@/theme/spacing';
 import { cityLabel } from '@/data/cities';
-import { formatMoney } from '@/utils/money';
 import { formatDateTime } from '@/utils/time';
 import { errorMessage } from '@/utils/errors';
 import { haptics } from '@/utils/haptics';
@@ -64,7 +63,6 @@ function Summary({ ride }: { ride: Ride }) {
     <>
       <Card padding="xl" style={{ gap: spacing.sm, alignItems: 'center' }}>
         <AppText variant="h2" align="center">{cityLabel(ride.fromCity, locale)} {isRTL ? '←' : '→'} {cityLabel(ride.toCity, locale)}</AppText>
-        <AppText variant="h1" numeric color="brand">{formatMoney(ride.pricePerSeat)}<AppText variant="body" color="textTertiary"> {t('ride.perSeat')}</AppText></AppText>
         <View style={{ flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap', justifyContent: 'center' }}>
           {ride.womenOnly ? <StatusBadge label={t('ride.womenOnly')} tone="brand" size="sm" /> : null}
           <StatusBadge label={ride.status === 'open' ? (ride.seatsLeft ? t('ride.seatsLeft', { count: ride.seatsLeft }) : t('ride.full')) : t(`ride.status.${ride.status}`)}
@@ -110,7 +108,6 @@ function PassengerPanel({ ride, action }: { ride: Ride; action: Action }) {
             <StatusBadge label={t(`ride.booking.${booking.status}`)} tone={rideBookingTone(booking.status)} size="sm" />
           </View>
           <DetailRow label={t('ride.seats')} value={String(booking.seats)} />
-          <DetailRow label={t('ride.total')} value={formatMoney(booking.amount)} emphasis />
           {booking.status === 'completed' ? (
             <RatingPicker label={t('ride.rateDriver')} value={booking.driverRating} disabled={action.isPending}
               onRate={(rating) => action.mutate({ kind: 'rate', bookingId: booking.id, rating }, feedback)} />
@@ -127,8 +124,6 @@ function PassengerPanel({ ride, action }: { ride: Ride; action: Action }) {
           <StepperRow icon={<Users size={18} color={colors.textSecondary} />} label={t('ride.seats')} value={String(seats)}
             onMinus={() => setSeats((n) => Math.max(1, n - 1))} onPlus={() => setSeats((n) => Math.min(ride.seatsLeft, n + 1))}
             minusDisabled={seats <= 1} plusDisabled={seats >= ride.seatsLeft} />
-          <DetailRow label={t('ride.total')} value={formatMoney(ride.pricePerSeat * seats)} emphasis />
-          <AppText variant="caption" color="textTertiary">{t('ride.heldNote')}</AppText>
           {needsWoman ? (
             <>
               <InlineNotice tone="info" title={t('ride.womenOnlyNotice')} />
@@ -157,7 +152,7 @@ function DriverPanel({ ride, action }: { ride: Ride; action: Action }) {
           <View key={b.id} style={{ gap: spacing.sm }}>
             {index ? <Divider /> : null}
             <View style={{ flexDirection: row, alignItems: 'center', gap: spacing.sm }}>
-              <AppText variant="body" style={{ flex: 1 }}>{t('ride.passengerLine', { name: b.passengerName ?? '—', seats: b.seats, amount: formatMoney(b.amount) })}</AppText>
+              <AppText variant="body" style={{ flex: 1 }}>{t('ride.passengerLine', { name: b.passengerName ?? '—', seats: b.seats })}</AppText>
               <StatusBadge label={t(`ride.booking.${b.status}`)} tone={rideBookingTone(b.status)} size="sm" />
             </View>
             {b.status === 'pending' && ride.status === 'open' ? (

@@ -9,7 +9,8 @@ const createRideInput = z.object({
   meetingPoint: text,
   departAt: z.iso.datetime({ offset: true }),
   seatsTotal: z.number().int().min(1).max(8),
-  pricePerSeat: money.max(rides.MAX_SEAT_PRICE),
+  // Ignored: rides are free. Still accepted so older app builds that send it keep working.
+  pricePerSeat: money.optional(),
   vehicleId: id,
   womenOnly: z.boolean().optional(),
   notes: z.string().trim().max(300).optional(),

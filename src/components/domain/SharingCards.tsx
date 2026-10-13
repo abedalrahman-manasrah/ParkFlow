@@ -11,7 +11,7 @@ import { formatDateTime } from '@/utils/time';
 import { ratingText } from '@/utils/sharing';
 import type { HostSpot, Ride } from '@/types';
 
-/** Summary card for a shared ride: route, price, departure, driver and seats. */
+/** Summary card for a shared ride: route, departure, driver and seats. */
 export function RideCard({ ride, onPress, badge }: { ride: Ride; onPress: () => void; badge?: ReactNode }) {
   const { t, row, locale, dateLocale, isRTL } = useLocale();
   const { colors } = useTheme();
@@ -22,7 +22,6 @@ export function RideCard({ ride, onPress, badge }: { ride: Ride; onPress: () => 
         <AppText variant="titleLg">{cityLabel(ride.fromCity, locale)}</AppText>
         <ArrowRight size={18} color={colors.textTertiary} style={isRTL ? { transform: [{ scaleX: -1 }] } : undefined} />
         <AppText variant="titleLg" style={{ flex: 1 }}>{cityLabel(ride.toCity, locale)}</AppText>
-        <AppText variant="titleLg" numeric color="brand">{formatMoney(ride.pricePerSeat)}</AppText>
       </View>
       <AppText variant="bodySm" color="textSecondary">{formatDateTime(ride.departAt, dateLocale)} · {ride.meetingPoint}</AppText>
       <View style={{ flexDirection: row, alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>

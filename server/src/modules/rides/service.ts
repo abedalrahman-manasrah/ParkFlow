@@ -5,11 +5,6 @@ import { idempotent } from '../../utils/idempotency';
 import { post } from '../wallet/ledger';
 import { notify } from '../notifications/service';
 
-/**
- * Rides are cost sharing between people already making the trip, not a taxi
- * service — so a seat has a hard price ceiling (minor units).
- */
-export const MAX_SEAT_PRICE = 6000;
 /** A ride nobody closes is settled automatically this long after departure. */
 const AUTO_COMPLETE_AFTER_MS = 12 * 3_600_000;
 const HELD = ['pending', 'accepted'] as const;
@@ -87,6 +82,7 @@ function bookingDto(b: RideRow['bookings'][number]) {
 }
 
 async function refund(tx: Tx, booking: { id: string; passengerId: string; amount: number }, ride: { fromCity: string; toCity: string }) {
+  if (!booking.amount) return;
   await post(tx, booking.passengerId, {
     amount: booking.amount, type: 'refund',
     title: 'Ride refund', titleAr: 'استرداد رحلة',
@@ -108,7 +104,7 @@ async function settle(tx: Tx, rideId: string) {
   if (accepted.length) {
     await tx.rideBooking.updateMany({ where: { id: { in: accepted.map((b) => b.id) } }, data: { status: 'completed' } });
     const total = accepted.reduce((sum, b) => sum + b.amount, 0);
-    await post(tx, ride.driverId, {
+    if (total) await post(tx, ride.driverId, {
       amount: total, type: 'earning',
       title: 'Ride earnings', titleAr: 'أرباح رحلة',
       subtitle: `${ride.fromCity} → ${ride.toCity}`, subtitleAr: `${ride.fromCity} ← ${ride.toCity}`,
@@ -174,7 +170,7 @@ export async function mine(userId: string) {
 
 export async function create(userId: string, input: {
   fromCity: string; toCity: string; meetingPoint: string; departAt: string; seatsTotal: number;
-  pricePerSeat: number; vehicleId: string; womenOnly?: boolean; notes?: string;
+  vehicleId: string; womenOnly?: boolean; notes?: string;
 }, key: string) {
   const id = await idempotent(userId, 'ride:create', key, input, async (tx) => {
     const user = requireValue(await tx.user.findUnique({ where: { id: userId } }));
@@ -183,7 +179,6 @@ export async function create(userId: string, input: {
     assert(departAt.getTime() >= Date.now() + 15 * 60_000, 'RIDE_TOO_SOON', 'Departure must be at least 15 minutes from now');
     assert(departAt.getTime() <= Date.now() + 60 * 86_400_000, 'RIDE_TOO_FAR', 'Departure must be within the next 60 days');
     assert(input.fromCity.trim().toLowerCase() !== input.toCity.trim().toLowerCase(), 'SAME_CITY', 'Choose two different cities');
-    assert(input.pricePerSeat <= MAX_SEAT_PRICE, 'PRICE_TOO_HIGH', 'Seat prices are capped to keep rides cost sharing, not a taxi fare');
     assert(!input.womenOnly || user.gender === 'female', 'WOMEN_ONLY', 'Only women can offer women-only rides', 403);
     const linked = await tx.userVehicle.findFirst({ where: { userId, vehicleId: input.vehicleId, unlinkedAt: null } });
     assert(linked, 'VEHICLE_REQUIRED', 'Choose one of your own vehicles', 403);
@@ -191,7 +186,8 @@ export async function create(userId: string, input: {
       data: {
         driverId: userId, vehicleId: input.vehicleId,
         fromCity: input.fromCity.trim(), toCity: input.toCity.trim(), meetingPoint: input.meetingPoint.trim(),
-        departAt, seatsTotal: input.seatsTotal, pricePerSeat: input.pricePerSeat,
+        // Rides are free: seats are shared without a fare.
+        departAt, seatsTotal: input.seatsTotal, pricePerSeat: 0,
         womenOnly: input.womenOnly ?? false, notes: input.notes?.trim() || null,
       },
     });
@@ -214,8 +210,8 @@ export async function book(userId: string, rideId: string, input: { seats: numbe
     assert(taken + input.seats <= ride.seatsTotal, 'NOT_ENOUGH_SEATS', 'Not enough seats left on this ride', 409);
     const amount = ride.pricePerSeat * input.seats;
     const booking = await tx.rideBooking.create({ data: { rideId, passengerId: userId, seats: input.seats, amount } });
-    // The fare is held from the wallet now and released to the driver after the trip.
-    await post(tx, userId, {
+    // Any fare is held from the wallet now and released to the driver after the trip.
+    if (amount) await post(tx, userId, {
       amount: -amount, type: 'ride_payment',
       title: 'Ride booking', titleAr: 'حجز رحلة',
       subtitle: `${ride.fromCity} → ${ride.toCity}`, subtitleAr: `${ride.fromCity} ← ${ride.toCity}`,
@@ -245,7 +241,7 @@ export async function respond(userId: string, bookingId: string, accept: boolean
       await tx.rideBooking.update({ where: { id: bookingId }, data: { status: 'declined' } });
       await refund(tx, booking, booking.ride);
       await notify(tx, booking.passengerId, 'ride_declined', 'Seat request declined', 'تم رفض طلب المقعد',
-        'The driver could not take you. Your money is back in your wallet.', 'لم يتمكن السائق من أخذك. أُعيد المبلغ إلى محفظتك.', `/rides/${booking.rideId}`, `ride-declined:${bookingId}`);
+        'The driver could not take you this time.', 'لم يتمكن السائق من أخذك هذه المرة.', `/rides/${booking.rideId}`, `ride-declined:${bookingId}`);
     }
     return booking.rideId;
   });
@@ -276,7 +272,7 @@ export async function cancelRide(userId: string, rideId: string) {
       await tx.rideBooking.update({ where: { id: b.id }, data: { status: 'cancelled' } });
       await refund(tx, b, ride);
       await notify(tx, b.passengerId, 'ride_cancelled', 'Ride cancelled', 'أُلغيت الرحلة',
-        `The driver cancelled the ride to ${ride.toCity}. Your money is back in your wallet.`, `ألغى السائق الرحلة إلى ${ride.toCity}. أُعيد المبلغ إلى محفظتك.`,
+        `The driver cancelled the ride to ${ride.toCity}.`, `ألغى السائق الرحلة إلى ${ride.toCity}.`,
         `/rides/${ride.id}`, `ride-cancelled:${b.id}`);
     }
     await tx.ride.update({ where: { id: ride.id }, data: { status: 'cancelled' } });

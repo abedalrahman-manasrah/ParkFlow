@@ -27,7 +27,7 @@ export interface Ride {
   departAt: ISODateString;
   seatsTotal: number;
   seatsLeft: number;
-  /** Minor units. Capped server-side: rides share costs, they are not taxi fares. */
+  /** Minor units. Always 0: rides are free. */
   pricePerSeat: number;
   womenOnly: boolean;
   notes?: string;
@@ -47,7 +47,6 @@ export interface CreateRideInput {
   meetingPoint: string;
   departAt: ISODateString;
   seatsTotal: number;
-  pricePerSeat: number;
   vehicleId: ID;
   womenOnly?: boolean;
   notes?: string;

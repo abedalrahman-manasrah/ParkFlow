@@ -18,7 +18,7 @@ async function person(name: string, gender = 'female', credit = 10000) {
 const inHours = (hours: number) => new Date(Math.ceil((Date.now() + hours * 3_600_000) / 1_800_000) * 1_800_000).toISOString();
 const rideInput = (extra: Partial<Parameters<typeof rides.create>[1]> = {}) => ({
   fromCity: 'Ramallah', toCity: 'Nablus', meetingPoint: 'Al-Manara', departAt: inHours(24),
-  seatsTotal: 2, pricePerSeat: 2500, vehicleId, ...extra,
+  seatsTotal: 2, vehicleId, ...extra,
 });
 const spotInput = (extra: Partial<spots.SpotInput> = {}): spots.SpotInput => ({
   title: 'Driveway', city: 'Ramallah', areaHint: 'Al-Tireh', fullAddress: 'Street 1, house 2',
@@ -39,13 +39,13 @@ beforeEach(async () => {
 });
 
 describe('shared rides', () => {
-  it('holds the fare, pays the driver after the trip and refunds a declined seat', async () => {
-    const ride = await rides.create(driver, rideInput(), key());
-    expect(ride.seatsLeft).toBe(2);
+  it('books free seats without touching wallets, through decline and completion', async () => {
+    const ride = await rides.create(driver, { ...rideInput(), pricePerSeat: 2500 } as Parameters<typeof rides.create>[1], key());
+    expect(ride).toMatchObject({ seatsLeft: 2, pricePerSeat: 0 });
     const booked = await rides.book(rider, ride.id, { seats: 1 }, key());
-    expect(booked.myBooking).toMatchObject({ status: 'pending', amount: 2500 });
+    expect(booked.myBooking).toMatchObject({ status: 'pending', amount: 0 });
     expect(booked.vehicle?.plateNumber).toBeUndefined();
-    expect(await balance(rider)).toBe(7500);
+    expect(await balance(rider)).toBe(10000);
     const otherBooking = (await rides.book(other, ride.id, { seats: 1 }, key())).myBooking!;
     await expect(rides.book(await person('Third'), ride.id, { seats: 1 }, key())).rejects.toMatchObject({ code: 'NOT_ENOUGH_SEATS' });
 
@@ -57,7 +57,8 @@ describe('shared rides', () => {
     await expect(rides.complete(driver, ride.id)).rejects.toMatchObject({ code: 'RIDE_NOT_STARTED' });
     await db.ride.update({ where: { id: ride.id }, data: { departAt: new Date(Date.now() - 60_000) } });
     await rides.complete(driver, ride.id);
-    expect(await balance(driver)).toBe(2500);
+    expect(await balance(driver)).toBe(0);
+    expect(await db.walletTransaction.count({ where: { type: { in: ['ride_payment', 'refund', 'earning'] } } })).toBe(0);
     const rated = await rides.rate(rider, booked.myBooking!.id, 5);
     expect(rated.driver).toMatchObject({ rating: 5, ratingCount: 1, completedRides: 1 });
     await expect(rides.rate(rider, booked.myBooking!.id, 4)).rejects.toMatchObject({ code: 'ALREADY_RATED' });
@@ -71,18 +72,16 @@ describe('shared rides', () => {
     expect((await rides.get(rider, ride.id)).status).toBe('cancelled');
   });
 
-  it('enforces the price cap, women-only rides, own vehicles and wallet balance', async () => {
-    await expect(rides.create(driver, rideInput({ pricePerSeat: rides.MAX_SEAT_PRICE + 1 }), key())).rejects.toMatchObject({ code: 'PRICE_TOO_HIGH' });
+  it('enforces women-only rides and own vehicles, and needs no wallet balance', async () => {
     await expect(rides.create(driver, rideInput({ womenOnly: true }), key())).rejects.toMatchObject({ code: 'WOMEN_ONLY' });
     await expect(rides.create(rider, rideInput(), key())).rejects.toMatchObject({ code: 'VEHICLE_REQUIRED' });
     const womenVehicle = await db.vehicle.create({ data: { plateNumber: '9-1234-90' } });
     await db.userVehicle.create({ data: { userId: rider, vehicleId: womenVehicle.id } });
     const womenRide = await rides.create(rider, rideInput({ vehicleId: womenVehicle.id, womenOnly: true }), key());
     await expect(rides.book(other, womenRide.id, { seats: 1 }, key())).rejects.toMatchObject({ code: 'WOMEN_ONLY' });
-    const ride = await rides.create(driver, rideInput({ pricePerSeat: 6000 }), key());
-    const broke = await person('No Money', 'female', 1000);
-    await expect(rides.book(broke, ride.id, { seats: 1 }, key())).rejects.toMatchObject({ code: 'INSUFFICIENT_FUNDS' });
-    expect((await rides.get(broke, ride.id)).seatsLeft).toBe(2);
+    const ride = await rides.create(driver, rideInput(), key());
+    const broke = await person('No Money', 'female', 0);
+    expect((await rides.book(broke, ride.id, { seats: 1 }, key())).seatsLeft).toBe(1);
   });
 });
 

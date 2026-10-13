@@ -25,10 +25,8 @@ import { spacing } from '@/theme/spacing';
 import { formatDate, formatTime } from '@/utils/time';
 import { errorMessage } from '@/utils/errors';
 import { haptics } from '@/utils/haptics';
-import { shekelsToMinor } from '@/utils/sharing';
 
 const HALF_HOUR = 30 * 60_000;
-const MAX_SEAT_PRICE = 6000;
 const earliest = () => Math.ceil((Date.now() + 20 * 60_000) / HALF_HOUR) * HALF_HOUR;
 
 export default function OfferRideScreen() {
@@ -45,7 +43,6 @@ export default function OfferRideScreen() {
   const [meetingPoint, setMeetingPoint] = useState('');
   const [departMs, setDepartMs] = useState(() => earliest() + 2 * HALF_HOUR);
   const [seats, setSeats] = useState(3);
-  const [price, setPrice] = useState('25');
   const [vehicleId, setVehicleId] = useState('');
   const [womenOnly, setWomenOnly] = useState(false);
   const [notes, setNotes] = useState('');
@@ -54,11 +51,9 @@ export default function OfferRideScreen() {
     if (!vehicleId && vehicles.length) setVehicleId((vehicles.find((v) => v.isDefault) ?? vehicles[0])!.id);
   }, [vehicleId, vehicles]);
 
-  const priceMinor = shekelsToMinor(price);
-  const priceInvalid = !Number.isFinite(priceMinor) || priceMinor < 0 || priceMinor > MAX_SEAT_PRICE;
   const sameCity = fromCity === toCity;
   const needsWoman = womenOnly && user?.gender !== 'female';
-  const canPublish = Boolean(vehicleId) && meetingPoint.trim().length > 0 && !priceInvalid && !sameCity && !needsWoman;
+  const canPublish = Boolean(vehicleId) && meetingPoint.trim().length > 0 && !sameCity && !needsWoman;
 
   const shift = (ms: number) => {
     const next = departMs + ms;
@@ -67,7 +62,7 @@ export default function OfferRideScreen() {
 
   const publish = () => createRide.mutate({
     fromCity, toCity, meetingPoint: meetingPoint.trim(), departAt: new Date(departMs).toISOString(),
-    seatsTotal: seats, pricePerSeat: priceMinor, vehicleId, womenOnly, notes: notes.trim() || undefined,
+    seatsTotal: seats, vehicleId, womenOnly, notes: notes.trim() || undefined,
   }, {
     onSuccess: (ride) => { haptics.success(); router.replace(`/rides/${ride.id}`); },
     onError: () => haptics.error(),
@@ -91,8 +86,6 @@ export default function OfferRideScreen() {
             onMinus={() => shift(-HALF_HOUR)} onPlus={() => shift(HALF_HOUR)} minusDisabled={departMs - HALF_HOUR < earliest()} />
           <StepperRow icon={<Users size={18} color={colors.textSecondary} />} label={t('ride.seats')} value={String(seats)}
             onMinus={() => setSeats((n) => Math.max(1, n - 1))} onPlus={() => setSeats((n) => Math.min(8, n + 1))} minusDisabled={seats <= 1} plusDisabled={seats >= 8} />
-          <TextField label={t('ride.pricePerSeat')} value={price} onChangeText={setPrice} keyboardType="decimal-pad" maxLength={5}
-            error={priceInvalid ? t('ride.priceTooHigh') : undefined} hint={t('ride.costSharing')} />
         </Card>
 
         <Card padding="lg" style={{ gap: spacing.lg }}>

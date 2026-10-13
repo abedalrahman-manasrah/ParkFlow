@@ -45,11 +45,11 @@ async function seedSharingDemo(){
  const omar=await person('demo-host-omar','omar.demo@parkflow.local','عمر (تجريبي)','male','7-5521-94','Hyundai','Accent','Silver');
  const sara=await person('demo-host-sara','sara.demo@parkflow.local','سارة (تجريبي)','female','4-8812-95','Skoda','Octavia','Grey');
  const rides=[
-  {id:'demo-ride-1',d:omar,fromCity:'Ramallah',toCity:'Nablus',meetingPoint:'دوار المنارة',departAt:at(1,8),seatsTotal:3,pricePerSeat:2500,womenOnly:false,notes:'أنطلق في الموعد، حقائب صغيرة فقط.'},
-  {id:'demo-ride-2',d:lina,fromCity:'Birzeit',toCity:'Ramallah',meetingPoint:'البوابة الرئيسية لجامعة بيرزيت',departAt:at(1,15),seatsTotal:3,pricePerSeat:800,womenOnly:true,notes:'للنساء فقط. عائدة إلى البيت بعد المحاضرات.'},
-  {id:'demo-ride-3',d:sara,fromCity:'Ramallah',toCity:'Bethlehem',meetingPoint:'مجمع رام الله المركزي',departAt:at(2,9),seatsTotal:2,pricePerSeat:3000,womenOnly:false,notes:undefined},
-  {id:'demo-ride-4',d:omar,fromCity:'Nablus',toCity:'Ramallah',meetingPoint:'البوابة الشرقية للبلدة القديمة في نابلس',departAt:at(2,17),seatsTotal:4,pricePerSeat:2500,womenOnly:false,notes:'يمكنني التوقف في حوارة عند الحاجة.'},
-  {id:'demo-ride-5',d:lina,fromCity:'Ramallah',toCity:'Jericho',meetingPoint:'بلدية البيرة',departAt:at(4,10),seatsTotal:3,pricePerSeat:2000,womenOnly:false,notes:'رحلة نهاية الأسبوع، العودة في نفس المساء.'},
+  {id:'demo-ride-1',d:omar,fromCity:'Ramallah',toCity:'Nablus',meetingPoint:'دوار المنارة',departAt:at(1,8),seatsTotal:3,pricePerSeat:0,womenOnly:false,notes:'أنطلق في الموعد، حقائب صغيرة فقط.'},
+  {id:'demo-ride-2',d:lina,fromCity:'Birzeit',toCity:'Ramallah',meetingPoint:'البوابة الرئيسية لجامعة بيرزيت',departAt:at(1,15),seatsTotal:3,pricePerSeat:0,womenOnly:true,notes:'للنساء فقط. عائدة إلى البيت بعد المحاضرات.'},
+  {id:'demo-ride-3',d:sara,fromCity:'Ramallah',toCity:'Bethlehem',meetingPoint:'مجمع رام الله المركزي',departAt:at(2,9),seatsTotal:2,pricePerSeat:0,womenOnly:false,notes:undefined},
+  {id:'demo-ride-4',d:omar,fromCity:'Nablus',toCity:'Ramallah',meetingPoint:'البوابة الشرقية للبلدة القديمة في نابلس',departAt:at(2,17),seatsTotal:4,pricePerSeat:0,womenOnly:false,notes:'يمكنني التوقف في حوارة عند الحاجة.'},
+  {id:'demo-ride-5',d:lina,fromCity:'Ramallah',toCity:'Jericho',meetingPoint:'بلدية البيرة',departAt:at(4,10),seatsTotal:3,pricePerSeat:0,womenOnly:false,notes:'رحلة نهاية الأسبوع، العودة في نفس المساء.'},
  ];
  for(const r of rides){const {id,d,...data}=r;await db.ride.upsert({where:{id},create:{id,...data,driverId:d.user.id,vehicleId:d.vehicleId},update:{...data,status:'open'}});}
  const everyDay=[0,1,2,3,4,5,6],weekdays=[0,1,2,3,4];

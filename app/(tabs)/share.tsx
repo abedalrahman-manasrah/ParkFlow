@@ -6,7 +6,6 @@ import { CarFront, House, Plus } from 'lucide-react-native';
 
 import {
   AppButton,
-  AppText,
   EmptyState,
   ErrorState,
   Screen,
@@ -66,7 +65,6 @@ function RidesSection({ bottom }: { bottom: number }) {
       </View>
       <CityPicker label={t('ride.from')} value={from} onChange={setFrom} allowAny />
       <CityPicker label={t('ride.to')} value={to} onChange={setTo} allowAny />
-      <AppText variant="caption" color="textTertiary">{t('ride.costSharing')}</AppText>
 
       {rides.isPending ? <SkeletonGroup count={3} height={120} />
         : rides.isError ? <ErrorState error={rides.error} onRetry={() => void rides.refetch()} />
