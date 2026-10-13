@@ -68,5 +68,8 @@ export async function expireSessions(now=new Date()){
  for(const row of rows)await atomic(async tx=>{await lock(tx,`session:${row.id}`);const s=await tx.parkingSession.findUniqueOrThrow({where:{id:row.id}});if(s.status!=='ACTIVE'||!s.endsAt||s.endsAt>now)return;
  await tx.parkingSession.update({where:{id:s.id},data:{status:'EXPIRED',stoppedAt:s.endsAt,finalCost:s.currentCost}});
  await notify(tx,s.userId,'parking_expiring','Prepaid parking ended','انتهى الوقوف المدفوع مسبقاً','Your prepaid period has ended.','انتهت المدة المدفوعة مسبقاً.',`/parking/receipt/${s.id}`,`expired:${s.id}`);await event(tx,'parking.session.updated',{id:s.id},s.userId);});
- const soon=await db.parkingSession.findMany({where:{status:'ACTIVE',parkingMode:'prepaid',endsAt:{gt:now,lte:new Date(now.getTime()+600000)}},take:500});for(const s of soon)await atomic(tx=>notify(tx,s.userId,'parking_reminder','Parking expires soon','الوقوف على وشك الانتهاء','Check your parking time.','تحقق من وقت الوقوف.',`/parking/active/${s.id}`,`reminder:${s.id}:${s.endsAt!.toISOString()}`));
+ // Two warnings before paid time runs out, each with a way to extend, so overstay charges are never a surprise.
+ for(const minutes of [15,5]){const soon=await db.parkingSession.findMany({where:{status:'ACTIVE',parkingMode:'prepaid',endsAt:{gt:now,lte:new Date(now.getTime()+minutes*60000)}},take:500});
+ // A 15-minute session would otherwise get its 15-minute warning the moment it starts.
+ for(const s of soon.filter(x=>x.endsAt!.getTime()-x.startedAt.getTime()>(minutes+5)*60000))await atomic(tx=>notify(tx,s.userId,'parking_reminder',`Parking ends in ${minutes} minutes`,`ينتهي الوقوف خلال ${minutes} دقائق`,'Extend now to avoid an overstay violation.','مدّد الآن لتجنب مخالفة تجاوز الوقت.',`/parking/active/${s.id}`,`reminder:${s.id}:${s.endsAt!.toISOString()}:${minutes}`));}
 }

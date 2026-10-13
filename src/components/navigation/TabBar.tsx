@@ -3,7 +3,7 @@ import type { BottomTabBarProps } from 'expo-router/build/react-navigation/botto
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useEffect } from 'react';
-import { Map, Receipt, Car, Wallet, User } from 'lucide-react-native';
+import { Map, Receipt, Car, Wallet, User, HeartHandshake } from 'lucide-react-native';
 
 import { AppText } from '@/components/ui/AppText';
 import { PressableScale } from '@/components/ui/PressableScale';
@@ -18,6 +18,7 @@ import { haptics } from '@/utils/haptics';
 
 const ICONS: Record<string, typeof Map> = {
   map: Map,
+  share: HeartHandshake,
   activity: Receipt,
   vehicles: Car,
   wallet: Wallet,
@@ -26,6 +27,7 @@ const ICONS: Record<string, typeof Map> = {
 
 const LABELS: Record<string, TranslationKey> = {
   map: 'tabs.map',
+  share: 'tabs.share',
   activity: 'tabs.activity',
   vehicles: 'tabs.vehicles',
   wallet: 'tabs.wallet',

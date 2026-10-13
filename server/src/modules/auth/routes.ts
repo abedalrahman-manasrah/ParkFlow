@@ -24,6 +24,6 @@ route('post','/auth/logout',empty,r=>authentication.logout(user(r),r.auth!.sid))
 route('post','/auth/logout-all',empty,r=>authentication.logout(user(r),r.auth!.sid,true));
 route('get','/auth/me',empty,r=>users.getUser(user(r)));
 route('get','/users/me',empty,r=>users.getUser(user(r)));
-route('patch','/users/me',z.object({fullName:text.optional(),locale:z.enum(['en','ar']).optional()}).strict(),(r,b)=>users.updateUser(user(r),b));
+route('patch','/users/me',z.object({fullName:text.optional(),locale:z.enum(['en','ar']).optional(),gender:z.enum(['female','male']).optional()}).strict(),(r,b)=>users.updateUser(user(r),b));
 route('get','/users/me/notification-preferences',empty,r=>users.preferences(user(r)));
 route('patch','/users/me/notification-preferences',z.object({parkingReminders:z.boolean(),expiryWarnings:z.boolean(),lowBalance:z.boolean(),violations:z.boolean(),promotions:z.boolean()}).strict(),(r,b)=>users.updatePreferences(user(r),b));

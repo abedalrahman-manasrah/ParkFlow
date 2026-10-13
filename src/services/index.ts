@@ -14,6 +14,8 @@ import { httpRoadService } from './http/roadService';
 import { httpRoadReportService } from './http/roadReportService';
 import { httpRoutingService } from './http/routingService';
 import { httpTrustService } from './http/trustService';
+import { httpSharingService } from './http/sharingService';
+import { httpGateService } from './http/gateService';
 import { httpEmergencyService } from './http/emergencyService';
 
 export const services: Services = {
@@ -32,6 +34,8 @@ export const services: Services = {
   roadReports: httpRoadReportService,
   routing: httpRoutingService,
   trust: httpTrustService,
+  sharing: httpSharingService,
+  gates: httpGateService,
   emergency: httpEmergencyService,
 };
 export * from './types';
