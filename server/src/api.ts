@@ -15,4 +15,5 @@ import './modules/hostSpots/routes';
 import './modules/gates/routes';
 import './modules/violations/routes';
 import './modules/notifications/routes';
+import './modules/emergency/routes';
 import './modules/admin/routes';

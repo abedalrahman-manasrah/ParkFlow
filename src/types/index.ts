@@ -17,3 +17,4 @@ export * from './reservation';
 export * from './parkingLayout';
 export * from './sharing';
 export * from './gate';
+export * from './emergency';

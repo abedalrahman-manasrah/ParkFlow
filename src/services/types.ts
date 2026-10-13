@@ -17,6 +17,7 @@ import type {
   ParkingZone,
   PaymentMethod,
   Permit,
+  AwardedPoints,
   PointsEntry,
   ReportedAvailability,
   RoadFeedItem,
@@ -219,12 +220,12 @@ export interface RoadService {
     userId: string;
     checkpointId: string;
     status: CheckpointStatus;
-  }): Promise<{ event: RoadFeedItem; points?: PointsEntry }>;
+  }): Promise<{ event: RoadFeedItem; points?: AwardedPoints }>;
   reportZone(input: {
     userId: string;
     zoneId: string;
     availability: ReportedAvailability;
-  }): Promise<{ report: ZoneReport; points?: PointsEntry }>;
+  }): Promise<{ report: ZoneReport; points?: AwardedPoints }>;
 }
 
 export interface RoadReportService {
@@ -251,6 +252,12 @@ export interface TrustService {
   get(userId: string): Promise<TrustSummary>;
 }
 
+/** Crash calling config and the record of each detection. */
+export interface EmergencyService {
+  config(): Promise<import('../types/emergency').EmergencyConfig>;
+  recordCrash(input: import('../types/emergency').CrashEventInput): Promise<unknown>;
+}
+
 export interface Services {
   evStations: import('../types/evStation').EvStationApi;
   carServices: import('../types/carService').CarServiceApi;
@@ -269,6 +276,7 @@ export interface Services {
   trust: TrustService;
   sharing: import('../types/sharing').SharingService;
   gates: import('../types/gate').GateService;
+  emergency: EmergencyService;
 }
 
 export type { Vehicle, UserVehicleView };

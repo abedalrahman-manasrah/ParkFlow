@@ -38,6 +38,8 @@ export const STORAGE_KEYS = {
   preferences: 'sp.preferences',
   mapLayers: 'sp.map.layers',
   mockDb: 'sp.mock.db',
+  /** Crash events from the Android service that could not be uploaded yet. */
+  pendingCrashEvents: 'sp.crash.pending',
 } as const;
 
 /** Zustand `persist` adapter shape. */

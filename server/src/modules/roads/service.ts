@@ -3,12 +3,12 @@ import type { CheckpointStatus, Availability } from '@prisma/client';
 import { aggregate } from '../reports/aggregation';
 import { assert,requireValue } from '../../utils/errors';
 import { event } from '../../realtime/outbox';
-import { settlePoints } from '../trust/rewards';
+import { announcePoints,settlePoints } from '../trust/rewards';
 export async function checkpoints(){const rows=await db.roadCheckpoint.findMany({where:{active:true},include:{reports:{where:{hidden:false,reportedAt:{gte:new Date(Date.now()-21600000)}}}}});return rows.map(c=>({...c,reports:undefined,location:{latitude:c.latitude,longitude:c.longitude},...aggregate(c.reports,90,360),status:aggregate(c.reports,90,360).status??'open'}));}
 export async function feed(limit=25){return (await db.checkpointReport.findMany({where:{hidden:false},take:limit,orderBy:{reportedAt:'desc'},include:{checkpoint:true}})).map(r=>({...r,checkpoint:undefined,checkpointNameAr:r.checkpoint.nameAr,checkpointNameEn:r.checkpoint.nameEn}));}
 async function reward(tx:Tx,userId:string,placeId:string,refId:string,reason:'road_report'|'zone_report'){
  const last=await tx.pointsEntry.findFirst({where:{userId,placeId,createdAt:{gt:new Date(Date.now()-1800000)}}});if(last)return undefined;
- const p=await tx.pointsEntry.create({data:{userId,placeId,reason,points:5,...(reason==='road_report'?{roadReportId:refId}:{parkingReportId:refId})}});return {...p,refId};
+ const p=await tx.pointsEntry.create({data:{userId,placeId,reason,points:5,...(reason==='road_report'?{roadReportId:refId}:{parkingReportId:refId})}});const notification=await announcePoints(tx,p);return {...p,refId,notification};
 }
 export async function reportRoad(userId:string,checkpointId:string,status:CheckpointStatus){return atomic(async tx=>{await lock(tx,`report:${userId}:${checkpointId}`);const cp=requireValue(await tx.roadCheckpoint.findFirst({where:{id:checkpointId,active:true}}));
  const last=await tx.checkpointReport.findFirst({where:{userId,checkpointId,reportedAt:{gt:new Date(Date.now()-60000)}}});assert(!last,'REPORT_COOLDOWN','Wait a minute before reporting this place again',429);

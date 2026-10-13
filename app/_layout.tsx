@@ -21,6 +21,8 @@ import { usePreferencesStore } from '@/store/preferencesStore';
 import { isAppError } from '@/utils/errors';
 import { WebAppShell } from '@/components/layout/WebAppShell';
 import { NotificationBanner } from '@/components/navigation/NotificationBanner';
+import { CrashCountdown } from '@/components/navigation/CrashCountdown';
+import { useCrashDetection } from '@/hooks/useCrashDetection';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -97,6 +99,7 @@ function RootNavigator() {
 
 function AppShell() {
   useBackendSync();
+  useCrashDetection();
   const { colors } = useTheme();
   const [fontsLoaded, fontError] = useFonts({
     PlusJakartaSans_400Regular,
@@ -143,6 +146,7 @@ function AppShell() {
     <WebAppShell>
       {ready ? <RootNavigator /> : <View style={{ flex: 1, backgroundColor: colors.deep }} />}
       {ready ? <NotificationBanner /> : null}
+      {ready ? <CrashCountdown /> : null}
     </WebAppShell>
   );
 }
