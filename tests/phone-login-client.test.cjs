@@ -1,9 +1,6 @@
 const { test, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const Module = require('node:module');
-const ts = require('typescript');
+const { createClientLoader } = require('./helpers/client-loader.cjs');
 const React = require('react');
 const { create, act } = require('react-test-renderer');
 const { QueryClient, QueryClientProvider } = require('@tanstack/react-query');
@@ -13,6 +10,7 @@ const calls = [], routes = [], persisted = new Map();
 const Focus = React.createContext(true);
 const router = { push: route => routes.push(['push', route]), replace: route => routes.push(['replace', route]) };
 const ui = Object.fromEntries(['AppButton', 'AppHeader', 'AppText', 'InlineNotice', 'Reveal', 'Screen', 'TextField'].map(name => [name, props => React.createElement(name, props, props.children)]));
+const services = {};
 const stubs = {
   'react-native': { View: props => React.createElement('View', props, props.children) },
   'expo-router': {
@@ -23,42 +21,24 @@ const stubs = {
       React.useEffect(() => focused ? callback() : undefined, [callback, focused]);
     },
   },
-  '@/components/ui': ui,
-  '@/hooks/useLocale': { useLocale: () => ({ t: (key, values) => values ? `${key}:${values.seconds}` : key }) },
-  '@/utils/haptics': { haptics: { success() {}, error() {} } },
-  '@/services/storage': { secureStorage: {
+  '@parkflow/client/components/ui': ui,
+  '@parkflow/client/hooks/useLocale': { useLocale: () => ({ t: (key, values) => values ? `${key}:${values.seconds}` : key }) },
+  '@parkflow/client/utils/haptics': { haptics: { success() {}, error() {} } },
+  '@parkflow/client/services': { services },
+  '@parkflow/client/services/storage': { secureStorage: {
     getItem: async key => persisted.get(key) ?? null,
     setItem: async (key, value) => { persisted.set(key, value); },
     removeItem: async key => { persisted.delete(key); },
   }, STORAGE_KEYS: { authSession: 'auth' } },
-  '@/services/http/apiClient': { api: (url, options) => new Promise((resolve, reject) => calls.push({ url, options, resolve, reject })) },
+  '@parkflow/client/services/http/apiClient': { api: (url, options) => new Promise((resolve, reject) => calls.push({ url, options, resolve, reject })) },
 };
 // Exercise the screen, real auth service, Zustand stores and React Query;
 // replace only native presentation, navigation and the external transport/storage.
-const modules = new Map();
-function load(relative) {
-  const filename = path.resolve(__dirname, '..', relative);
-  if (modules.has(filename)) return modules.get(filename).exports;
-  const loaded = new Module(filename, module);
-  modules.set(filename, loaded);
-  loaded.filename = filename;
-  loaded.paths = Module._nodeModulePaths(path.dirname(filename));
-  const originalRequire = loaded.require.bind(loaded);
-  loaded.require = id => {
-    if (Object.hasOwn(stubs, id)) return stubs[id];
-    if (id === '@/services') return { services: { auth: load('src/services/http/authService.ts').httpAuthService } };
-    if (id === './apiClient') return stubs['@/services/http/apiClient'];
-    if (id.startsWith('@/')) return load(`src/${id.slice(2)}.ts`);
-    return originalRequire(id);
-  };
-  loaded._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX }, fileName: filename,
-  }).outputText, filename);
-  return loaded.exports;
-}
-const PhoneScreen = load('app/(onboarding)/phone.tsx').default;
-const { usePhoneAuthStore } = load('src/store/phoneAuthStore.ts');
-const { useAuthStore } = load('src/store/authStore.ts');
+const load = createClientLoader({ stubs });
+services.auth = load('@parkflow/client/services/http/authService').httpAuthService;
+const PhoneScreen = load('apps/customer/app/(onboarding)/phone.tsx').default;
+const { usePhoneAuthStore } = load('@parkflow/client/store/phoneAuthStore');
+const { useAuthStore } = load('@parkflow/client/store/authStore');
 let renderer, client;
 const tree = (focused = true) => React.createElement(QueryClientProvider, { client }, React.createElement(Focus.Provider, { value: focused }, React.createElement(PhoneScreen)));
 const button = () => renderer.root.findByType('AppButton');
@@ -125,12 +105,12 @@ test('development registration skips old OTP limits, persists the session and op
   assert.equal(calls.some(call => call.url.includes('otp')), false);
 });
 
-test('development login retains the server role and uses the standard administrator destination', async () => {
+test('development login retains the server role and opens the customer destination', async () => {
   await mount(); await settle(0, { developmentLoginEnabled: true, developmentEmailLoginEnabled: false, loginMethod: 'phone' });
   await submit();
   assert.deepEqual(calls[1].options.body, { phone: '+970599123456', purpose: 'login' });
   await settle(1, result({ role: 'ADMIN' }));
-  assert.deepEqual(routes, [['replace', '/admin']]);
+  assert.deepEqual(routes, [['replace', '/(tabs)/map']]);
   assert.equal(useAuthStore.getState().user.role, 'ADMIN');
 });
 

@@ -1,0 +1,224 @@
+import { ChevronDown, ChevronUp, Navigation, ShieldCheck, TriangleAlert, X } from 'lucide-react-native';
+import { ScrollView, View } from 'react-native';
+
+import { AppButton, AppText, IconButton, PressableScale } from '@parkflow/client/components/ui';
+import { useLocale } from '@parkflow/client/hooks/useLocale';
+import { useTheme } from '@parkflow/client/theme/ThemeProvider';
+import { radius } from '@parkflow/design/radius';
+import { shadow } from '@parkflow/design/shadows';
+import { spacing } from '@parkflow/design/spacing';
+import type { RouteDestination, RouteClosure, RouteResult } from '@parkflow/contracts';
+import { formatDistance } from '@parkflow/client/utils/geo';
+import type { RouteImpact, ScoredRouteCandidate } from '@parkflow/client/utils/routeImpact';
+
+function RouteDetails({ route }: { route: RouteResult }) {
+  const { colors } = useTheme();
+  const { t, locale, row } = useLocale();
+  const nameOf = (closure: RouteClosure) => (locale === 'ar' ? closure.nameAr : closure.nameEn);
+  const statusOf = (closure: RouteClosure) => t(`roads.status.${closure.status}` as const);
+  const avoided = [
+    ...new Map(
+      route.rejected.flatMap((item) =>
+        item.blockedBy ? [[item.blockedBy.checkpointId, item.blockedBy] as const] : [],
+      ),
+    ).values(),
+  ].filter((closure) =>
+    !route.closuresOnRoute.some((onRoute) => onRoute.checkpointId === closure.checkpointId),
+  );
+  const lines: { key: string; safe: boolean; text: string }[] = [];
+  if (route.source === 'straight-line') lines.push({ key: 'approximate', safe: false, text: t('route.approximate') });
+  route.closuresOnRoute.forEach((closure) =>
+    lines.push({ key: `on-${closure.checkpointId}`, safe: false, text: t('route.passes', { name: nameOf(closure), status: statusOf(closure) }) }),
+  );
+  avoided.forEach((closure) =>
+    lines.push({ key: `avoid-${closure.checkpointId}`, safe: true, text: t('route.avoids', { name: nameOf(closure), status: statusOf(closure) }) }),
+  );
+  if (lines.length === 0) lines.push({ key: 'clear', safe: true, text: t('route.clear') });
+
+  return (
+    <View style={{ gap: spacing.xs, paddingHorizontal: spacing.sm }}>
+      {lines.map((line) => (
+        <View key={line.key} style={{ flexDirection: row, alignItems: 'center', gap: spacing.sm }}>
+          {line.safe ? (
+            <ShieldCheck size={15} color={colors.success} strokeWidth={2.2} />
+          ) : (
+            <TriangleAlert size={15} color={colors.warning} strokeWidth={2.2} />
+          )}
+          <AppText variant="caption" color={line.safe ? 'successText' : 'warningText'} style={{ flex: 1 }}>
+            {line.text}
+          </AppText>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+interface CompactRoutePanelProps {
+  destination: RouteDestination;
+  route?: RouteResult;
+  loading: boolean;
+  detailsExpanded: boolean;
+  onDetailsExpandedChange: (expanded: boolean) => void;
+  onClose: () => void;
+  onOpenMaps: () => void;
+  onStartParking?: () => void;
+  onOpenDestination?: () => void;
+  startDisabled?: boolean;
+  impacts?: RouteImpact[];
+  suggestedAlternative?: ScoredRouteCandidate;
+  originalDurationSeconds?: number;
+  usingAlternative?: boolean;
+  alternativeDismissed?: boolean;
+  onSelectImpact?: (impact: RouteImpact) => void;
+  onKeepCurrent?: () => void;
+  onUseAlternative?: () => void;
+  onUseOriginal?: () => void;
+  showNoAlternative?: boolean;
+}
+
+export function CompactRoutePanel({
+  destination,
+  route,
+  loading,
+  detailsExpanded,
+  onDetailsExpandedChange,
+  onClose,
+  onOpenMaps,
+  onStartParking,
+  onOpenDestination,
+  startDisabled = false,
+  impacts = [],
+  suggestedAlternative,
+  originalDurationSeconds,
+  usingAlternative = false,
+  alternativeDismissed = false,
+  onSelectImpact,
+  onKeepCurrent,
+  onUseAlternative,
+  onUseOriginal,
+  showNoAlternative = false,
+}: CompactRoutePanelProps) {
+  const { colors } = useTheme();
+  const { t, locale, row } = useLocale();
+  const name = locale === 'ar' && destination.type === 'parking' ? destination.nameAr : destination.name;
+  const Chevron = detailsExpanded ? ChevronDown : ChevronUp;
+  const primaryImpact = impacts[0];
+  const issueName = primaryImpact ? t(`roadReports.type.${primaryImpact.report.type}`) : '';
+  const issueText = primaryImpact
+    ? primaryImpact.distanceAheadMeters === undefined
+      ? t('route.issueOnRoute', { type: issueName })
+      : t('route.issueAhead', { type: issueName, distance: formatDistance(primaryImpact.distanceAheadMeters) })
+    : '';
+  const durationDeltaMinutes = suggestedAlternative && originalDurationSeconds !== undefined
+    ? Math.round((suggestedAlternative.durationSeconds - originalDurationSeconds) / 60)
+    : 0;
+
+  return (
+    <View
+      testID="compact-route-panel"
+      style={[
+        { gap: spacing.sm, padding: spacing.md, borderRadius: radius.xxl, backgroundColor: colors.surface },
+        shadow.md,
+      ]}
+    >
+      <View style={{ flexDirection: row, alignItems: 'center', gap: spacing.sm }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <AppText variant="caption" color="textTertiary">{t('route.destination')}</AppText>
+          <AppText variant="title" numberOfLines={1}>{name}</AppText>
+        </View>
+        {route ? (
+          <AppText variant="title" color="brand" numeric>
+            {t('route.summary', { minutes: Math.max(1, Math.round(route.durationSeconds / 60)), distance: formatDistance(route.distanceMeters) })}
+          </AppText>
+        ) : loading ? (
+          <AppText variant="caption" color="textSecondary">{t('route.loading')}</AppText>
+        ) : null}
+        <IconButton
+          icon={<X size={16} color={colors.textSecondary} strokeWidth={2.3} />}
+          onPress={onClose}
+          accessibilityLabel={t('route.close')}
+          tone="ghost"
+          size={32}
+        />
+      </View>
+
+      {primaryImpact ? (
+        <PressableScale
+          onPress={() => onSelectImpact?.(primaryImpact)}
+          accessibilityRole="button"
+          style={{ flexDirection: row, alignItems: 'center', gap: spacing.sm, padding: spacing.sm, borderRadius: radius.md, backgroundColor: colors.warningSoft }}
+        >
+          <TriangleAlert size={17} color={colors.warningText} strokeWidth={2.3} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <AppText variant="caption" color="warningText" weight="bold">{issueText}</AppText>
+            <AppText variant="caption" color="warningText">
+              {impacts.length > 1 ? t('route.issueCount', { count: impacts.length }) : null}
+              {primaryImpact.report.status === 'unverified' ? `${impacts.length > 1 ? ' · ' : ''}${t('route.unverified')}` : null}
+            </AppText>
+          </View>
+        </PressableScale>
+      ) : null}
+
+      {usingAlternative ? (
+        <View style={{ gap: spacing.sm, padding: spacing.sm, borderRadius: radius.md, backgroundColor: colors.successSoft }}>
+          <AppText variant="caption" color="successText" weight="bold">{t('route.usingAlternative')}</AppText>
+          <AppButton label={t('route.useOriginal')} onPress={onUseOriginal} variant="tonal" size="sm" />
+        </View>
+      ) : suggestedAlternative && !alternativeDismissed ? (
+        <View style={{ gap: spacing.sm, padding: spacing.sm, borderRadius: radius.md, backgroundColor: colors.infoSoft }}>
+          <AppText variant="caption" color="infoText" weight="bold">
+            {durationDeltaMinutes > 0
+              ? t('route.alternativeAdds', { minutes: durationDeltaMinutes })
+              : t('route.alternativeSaves', { minutes: Math.abs(durationDeltaMinutes) })}
+          </AppText>
+          <View style={{ flexDirection: row, gap: spacing.sm }}>
+            <AppButton label={t('route.keepCurrent')} onPress={onKeepCurrent} variant="secondary" size="sm" style={{ flex: 1 }} />
+            <AppButton label={t('route.useAlternative')} onPress={onUseAlternative} size="sm" style={{ flex: 1 }} />
+          </View>
+        </View>
+      ) : showNoAlternative && !alternativeDismissed ? (
+        <AppText variant="caption" color="textSecondary">{t('route.noSaferAlternative')}</AppText>
+      ) : null}
+
+      {route ? (
+        <>
+          <PressableScale
+            onPress={() => onDetailsExpandedChange(!detailsExpanded)}
+            accessibilityRole="button"
+            accessibilityLabel={detailsExpanded ? t('route.hideDetails') : t('route.details')}
+            accessibilityState={{ expanded: detailsExpanded }}
+            style={{ flexDirection: row, alignItems: 'center', gap: spacing.xs, alignSelf: 'flex-start' }}
+          >
+            <AppText variant="caption" color="textSecondary">
+              {detailsExpanded ? t('route.hideDetails') : t('route.details')}
+            </AppText>
+            <Chevron size={14} color={colors.textSecondary} strokeWidth={2.3} />
+          </PressableScale>
+          {detailsExpanded ? (
+            <ScrollView style={{ maxHeight: 108 }} showsVerticalScrollIndicator={false} nestedScrollEnabled>
+              <RouteDetails route={route} />
+            </ScrollView>
+          ) : null}
+        </>
+      ) : null}
+
+      <View style={{ flexDirection: row, gap: spacing.sm }}>
+        <AppButton
+          label={t('route.openMaps')}
+          variant="secondary"
+          size="sm"
+          style={{ flex: 1 }}
+          onPress={onOpenMaps}
+          icon={<Navigation size={15} color={colors.text} strokeWidth={2.2} />}
+        />
+        <AppButton
+          label={destination.type === 'parking' ? t('zone.startParking') : t('ev.details')}
+          size="sm"
+          style={{ flex: 1 }}
+          onPress={destination.type === 'parking' ? onStartParking : onOpenDestination}
+          disabled={destination.type === 'parking' && (startDisabled || destination.zone.availability === 'full')}
+        />
+      </View>
+    </View>
+  );
+}

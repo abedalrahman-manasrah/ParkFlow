@@ -1,9 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const ts = require('typescript');
-require.extensions['.ts'] = (module, filename) => module._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, filename);
-const { normalizePhoneInput, authLanding, secondsUntil, retryDelaySeconds, verificationRetryDelay } = require('../src/utils/authFlow.ts');
+const { createClientLoader } = require('./helpers/client-loader.cjs');
+const { normalizePhoneInput, authLanding, secondsUntil, retryDelaySeconds, verificationRetryDelay } = createClientLoader()('@parkflow/client/utils/authFlow');
 
 test('Palestinian local, international and Arabic numerals identify the same mobile', () => {
   for (const input of ['0599 123 456', '599123456', '+970599123456', '00970 599 123 456', '٠٥٩٩١٢٣٤٥٦']) {
@@ -24,7 +22,31 @@ test('backend incomplete profile wins over a name or role; legacy completed acco
   assert.equal(authLanding(undefined), '/(onboarding)/welcome');
   assert.equal(authLanding({ id: 'new', fullName: 'New User', profileCompletedAt: null }), '/(onboarding)/details');
   assert.equal(authLanding({ id: 'legacy', fullName: 'Legacy User' }), '/(tabs)/map');
-  assert.equal(authLanding({ id: 'admin', fullName: 'Admin', role: 'ADMIN', profileCompletedAt: '2026-10-07' }), '/admin');
+  assert.equal(authLanding({ id: 'admin', fullName: 'Admin', role: 'ADMIN', profileCompletedAt: '2026-10-07' }), '/(tabs)/map');
+});
+
+test('customer administrators land in the customer map', () => {
+  assert.equal(authLanding({ id: 'admin', fullName: 'Admin', role: 'ADMIN', profileCompletedAt: '2026-10-07' }, 'customer'), '/(tabs)/map');
+});
+
+test('management administrators land in the administrator workspace', () => {
+  assert.equal(authLanding({ id: 'admin', fullName: 'Admin', role: 'ADMIN', profileCompletedAt: '2026-10-07' }, 'management'), '/admin');
+});
+
+test('management parking operators land in their operator workspace', () => {
+  assert.equal(authLanding({ id: 'operator', fullName: 'Operator', role: 'PARKING_OPERATOR', profileCompletedAt: '2026-10-07' }, 'management'), '/operator');
+});
+
+test('management denies ordinary customers with completed profiles', () => {
+  assert.equal(authLanding({ id: 'customer', fullName: 'Customer', role: 'USER', profileCompletedAt: '2026-10-07' }, 'management'), '/access-denied');
+});
+
+test('management denies ordinary customers before incomplete profile onboarding', () => {
+  assert.equal(authLanding({ id: 'customer', fullName: 'Customer', role: 'USER', profileCompletedAt: null }, 'management'), '/access-denied');
+});
+
+test('management denies ordinary customers before collecting a missing profile name', () => {
+  assert.equal(authLanding({ id: 'customer', fullName: '', role: 'USER', profileCompletedAt: null }, 'management'), '/access-denied');
 });
 
 test('cooldowns use absolute deadlines and accept only bounded server retry values', () => {

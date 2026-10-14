@@ -3,12 +3,12 @@ import { hoursSchema } from "../src/modules/management/schemas";
 const { api } = vi.hoisted(() => ({
   api: vi.fn(async (_path, request) => request.body),
 }));
-vi.mock("../../src/services/http/apiClient", () => ({
+vi.mock("../../packages/client/src/services/http/apiClient", () => ({
   api,
   segment: encodeURIComponent,
   query: () => "",
 }));
-import { managementService } from "../../src/services/http/managementService";
+import { managementService } from "../../packages/client/src/services/http/managementService";
 
 it("round-trips fetched weekly hours using only writable fields", async () => {
   const fetchedHours = Array.from({ length: 7 }, (_, weekday) => ({

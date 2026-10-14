@@ -1,9 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const ts = require('typescript');
-require.extensions['.ts'] = (module, filename) => module._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, filename);
-const { TopUpRecovery, PendingPaymentConflict } = require('../src/utils/pendingPayment.ts');
+const { createClientLoader } = require('./helpers/client-loader.cjs');
+const { TopUpRecovery, PendingPaymentConflict } = createClientLoader()('@parkflow/client/utils/pendingPayment');
 function storage() {
   const values = new Map();
   return { getItem: async (key) => values.get(key) ?? null, setItem: async (key, value) => { values.set(key, value); }, removeItem: async (key) => { values.delete(key); } };

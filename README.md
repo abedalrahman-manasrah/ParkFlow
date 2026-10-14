@@ -1,7 +1,8 @@
 # ParkFlow — Smart Parking for Palestine
 
-ParkFlow is an Expo and TypeScript application backed by Express, Prisma,
-PostgreSQL and Redis. It supports finding parking, reservations, parking sessions,
+ParkFlow has two independently runnable Expo and TypeScript frontends backed by
+one Express service, Prisma, PostgreSQL and Redis: the customer application and
+the administrator/parking-owner web portal. It supports finding parking, reservations, parking sessions,
 wallet payments, community road reports, and workspaces for administrators and
 parking operators. The interface supports English and Arabic with RTL layouts.
 
@@ -36,8 +37,10 @@ providers or operator processes before public use.
 Requirements: Node.js, npm, and Docker Desktop with its Linux engine running.
 
 1. Install the frontend dependencies with `npm ci`.
-2. Copy `.env.example` to `.env` and `server/.env.example` to `server/.env`.
-   For a browser on this computer, set the frontend
+2. Copy `apps/customer/.env.example` to `apps/customer/.env`,
+   `apps/management/.env.example` to `apps/management/.env`, and
+   `server/.env.example` to `server/.env`.
+   For a browser on this computer, set each frontend's
    `EXPO_PUBLIC_API_BASE_URL=http://localhost:4000/api/v1`. For a physical device,
    use the computer's LAN IP instead of `localhost`.
 3. In `server/.env`, generate private values for the JWT secrets and payment
@@ -56,14 +59,25 @@ Requirements: Node.js, npm, and Docker Desktop with its Linux engine running.
    before seeding if an administrator is needed. The seed does not promote an
    existing user. Owners and staff are assigned through the administrator's
    management workspace.
-5. Start the frontend from the project root:
+5. Start the frontends in separate terminals from the project root:
 
    ```powershell
-   npx expo start --web --port 8081 --localhost --max-workers 1
+   npm run dev:customer
+   npm run dev:management
    ```
 
-   Open `http://localhost:8081`. For native development, use `npx expo start`
-   and select a connected device or emulator.
+   Open `http://localhost:8081` for customers and `http://localhost:8082` for
+   administrators/parking owners. Native customer development uses `npm start`,
+   `npm run android` or `npm run ios` from the root. To pass Expo arguments, use
+   the customer workspace directly, for example
+   `npm run start --workspace @parkflow/customer -- --clear`.
+
+   Each frontend has its own router, query cache and login session. Management
+   never reads the legacy customer session, even on the same browser origin.
+   All parking/financial records and permissions remain in the common backend.
+
+See the [frontend team ownership guide](docs/operations/frontend-team-guide.md)
+for working independently and coordinating shared API/design changes.
 
 ## Temporary team sign-in
 
@@ -78,8 +92,11 @@ DEV_SKIP_PHONE_OTP=false
 ```
 
 Then run `docker compose up -d --force-recreate backend worker` from `server`.
-Choose sign-in on the welcome screen or open `/email`, and enter an existing
-account's email. New users enter their name and email before completing their
+Choose sign-in on either frontend's welcome screen or open its `/email`, and
+enter an existing account's email. Customer sign-in opens the map, including for
+administrator accounts. The management portal opens `/admin` for an administrator
+and `/operator` for a parking operator; ordinary accounts cannot enter its workspaces.
+New customer users enter their name and email before completing their
 profile. This mode grants access based on knowing an email address, so limit the
 development instance to the trusted team. It does not mark new emails as verified.
 
@@ -96,7 +113,8 @@ Arabic instructions, and [SMTP email verification setup](EMAIL_OTP.md).
 
 | Service | Host port | Container port |
 | --- | --- | --- |
-| Expo web | 8081 | — |
+| Customer Expo web | 8081 | — |
+| Management Expo web | 8082 | — |
 | Backend API | 4000 | 4000 |
 | PostgreSQL | 5434 | 5432 |
 | Redis | 6381 | 6379 |
@@ -105,7 +123,7 @@ Arabic instructions, and [SMTP email verification setup](EMAIL_OTP.md).
 
 The worker does not expose a port. PostgreSQL, Redis and object storage are bound
 to the host loopback address. The API is under `/api/v1`; `/ready` checks service
-readiness. Administrative pages include `/admin`, `/admin/manage`,
+readiness. On the management origin, administrative pages include `/admin`, `/admin/manage`,
 `/admin/vehicles` and `/admin/appearance`; the operator workspace is `/operator`.
 Access is enforced by the backend, not only by hiding pages.
 
@@ -115,10 +133,15 @@ Frontend checks, from the project root:
 
 ```powershell
 npm run typecheck
-node --test --test-concurrency=1 tests/*.test.cjs
+npm test
+npm run test:contracts
+npm run export:customer
+npm run export:management
 ```
 
-Backend checks, from `server`:
+The customer export checks web, Android and iOS JavaScript bundles; management
+exports web. This is bundle verification, not a physical-device installation test.
+Backend dependencies remain standalone. Backend checks, from `server`:
 
 ```powershell
 npm ci
@@ -138,14 +161,13 @@ Do not use the application database as the test database.
 ## Architecture
 
 ```text
-app/                    Expo Router screens and workspaces
-src/components/         UI, map, management and domain components
-src/hooks/              TanStack Query hooks
-src/services/http/      Typed backend adapters
-src/store/              Authentication, preferences and application configuration
-src/offline/            Queued road reports and feedback
-src/theme/              Design tokens and configured appearance
-src/i18n/               English and Arabic strings
+apps/customer/app/      Customer-only Expo Router screens
+apps/customer/src/      Map, parking/domain and navigation components
+apps/management/app/    Administrator/operator screens and staff sign-in
+apps/management/src/    Management components and responsive portal shell
+packages/contracts/    Shared domain types and request/response definitions
+packages/design/       Design tokens and shared brand assets
+packages/client/       Shared UI, HTTP adapters, stores, localization and utilities
 server/src/modules/     Authentication and parking business rules
 server/src/jobs/        Background workers
 server/prisma/          Schema, migrations and seed
@@ -155,7 +177,7 @@ docs/operations/        Setup and operating guidance
 docs/reviews/           Implementation and verification records
 ```
 
-Screens use hooks and typed services. `src/services/index.ts` selects the HTTP
+Screens use hooks and typed services. `packages/client/src/services/index.ts` selects the HTTP
 implementations for application data; legacy prototype helpers remain in the
 source. PostgreSQL owns account, parking and financial records. Redis supports
 verification limits, jobs and coordination. Signed evidence URLs use object storage.
@@ -182,8 +204,8 @@ verification limits, jobs and coordination. Signed evidence URLs use object stor
 
 Native maps use `react-native-maps`; the web implementation projects the same
 coordinates onto a styled surface. Android Google Maps tiles require a configured
-Maps SDK key and an appropriate development build. `app.config.js` reads
-`GOOGLE_MAPS_API_KEY` from the environment. iOS uses Apple Maps.
+Maps SDK key and an appropriate development build. `apps/customer/app.config.js` reads
+`GOOGLE_MAPS_API_KEY` from `apps/customer/.env` or the build environment. iOS uses Apple Maps.
 
 Device tokens use SecureStore. Web storage does not provide the same protection
 as a device secure store. Arabic layout direction is driven by React state, so

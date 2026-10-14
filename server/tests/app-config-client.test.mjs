@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { configuredColors } from '../../src/theme/appConfigColors';
-import { lightColors, darkColors } from '../../src/theme/colors';
-import { readPublishedConfig, defaultAppConfig, appConfigSchema } from '../../src/types/appConfig';
+import { configuredColors } from '../../packages/design/src/appConfigColors';
+import { lightColors, darkColors } from '../../packages/design/src/colors';
+import { readPublishedConfig, defaultAppConfig, appConfigSchema } from '../../packages/contracts/src/appConfig';
 import { appConfigSchema as serverSchema, defaultAppConfig as serverDefaults } from '../src/modules/appConfig/schema';
 
 function contrast(a, b) {

@@ -1,9 +1,6 @@
 const { test, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const Module = require('node:module');
-const ts = require('typescript');
+const { createClientLoader } = require('./helpers/client-loader.cjs');
 const React = require('react');
 const { create, act } = require('react-test-renderer');
 const { QueryClient, QueryClientProvider } = require('@tanstack/react-query');
@@ -13,25 +10,16 @@ const calls = [], pending = [];
 const Native = ({ children }) => React.createElement('div', null, children);
 const stubs = {
   'react-native': { View: Native },
-  '@/components/ui': { Card: Native, AppText: Native },
-  '@/hooks/useLocale': { useLocale: () => ({ t: key => key }) },
-  '@/services/http/apiClient': { api: url => {
+  '@parkflow/client/components/ui': { Card: Native, AppText: Native },
+  '@parkflow/client/hooks/useLocale': { useLocale: () => ({ t: key => key }) },
+  '@parkflow/client/services/http/apiClient': { api: url => {
     calls.push(url);
     return new Promise((resolve, reject) => pending.push({ resolve, reject }));
   } },
 };
 // Transpile only the target component. React, its renderer and React Query are
 // real; transport and native presentation modules are the only stubs.
-const filename = path.resolve(__dirname, '../src/components/domain/ZoneForecast.tsx');
-const loaded = new Module(filename, module);
-loaded.filename = filename;
-loaded.paths = Module._nodeModulePaths(path.dirname(filename));
-const originalRequire = loaded.require.bind(loaded);
-loaded.require = id => Object.hasOwn(stubs, id) ? stubs[id] : originalRequire(id);
-loaded._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX }, fileName: filename,
-}).outputText, filename);
-const { ZoneForecast } = loaded.exports;
+const { ZoneForecast } = createClientLoader({ stubs })('apps/customer/src/components/domain/ZoneForecast.tsx');
 
 const RealDate = Date;
 let clock, renderer, client;

@@ -1,9 +1,6 @@
 const { test, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const Module = require('node:module');
-const ts = require('typescript');
+const { createClientLoader } = require('./helpers/client-loader.cjs');
 const React = require('react');
 const { create, act } = require('react-test-renderer');
 const { QueryClient, QueryClientProvider } = require('@tanstack/react-query');
@@ -13,6 +10,7 @@ const calls = [], routes = [], persisted = new Map();
 const Focus = React.createContext(true);
 const router = { push: route => routes.push(['push', route]), replace: route => routes.push(['replace', route]) };
 const ui = Object.fromEntries(['AppButton', 'AppHeader', 'AppText', 'InlineNotice', 'Reveal', 'Screen', 'TextField'].map(name => [name, props => React.createElement(name, props, props.children)]));
+const services = {};
 const stubs = {
   'react-native': { View: props => React.createElement('View', props, props.children) },
   'expo-router': {
@@ -23,45 +21,27 @@ const stubs = {
       React.useEffect(() => focused ? callback() : undefined, [callback, focused]);
     },
   },
-  '@/components/ui': ui,
-  '@/hooks/useLocale': { useLocale: () => ({ t: (key, values) => values ? `${key}:${values.seconds}` : key }) },
-  '@/hooks/useBlockHardwareBack': { useBlockHardwareBack() {} },
-  '@/utils/haptics': { haptics: { success() {}, error() {} } },
-  '@/services/storage': { secureStorage: {
+  '@parkflow/client/components/ui': ui,
+  '@parkflow/client/hooks/useLocale': { useLocale: () => ({ t: (key, values) => values ? `${key}:${values.seconds}` : key }) },
+  '@parkflow/client/hooks/useBlockHardwareBack': { useBlockHardwareBack() {} },
+  '@parkflow/client/utils/haptics': { haptics: { success() {}, error() {} } },
+  '@parkflow/client/services': { services },
+  '@parkflow/client/services/storage': { secureStorage: {
     getItem: async key => persisted.get(key) ?? null,
     setItem: async (key, value) => { persisted.set(key, value); },
     removeItem: async key => { persisted.delete(key); },
   }, STORAGE_KEYS: { authSession: 'auth' } },
-  '@/services/http/apiClient': { api: (url, options) => new Promise((resolve, reject) => calls.push({ url, options, resolve, reject })) },
+  '@parkflow/client/services/http/apiClient': { api: (url, options) => new Promise((resolve, reject) => calls.push({ url, options, resolve, reject })) },
 };
 // Keep the real screen, service, stores and React Query; replace only native
 // presentation, navigation and the external network/secure storage boundaries.
-const modules = new Map();
-function load(relative) {
-  const filename = path.resolve(__dirname, '..', relative);
-  if (modules.has(filename)) return modules.get(filename).exports;
-  const loaded = new Module(filename, module);
-  modules.set(filename, loaded);
-  loaded.filename = filename;
-  loaded.paths = Module._nodeModulePaths(path.dirname(filename));
-  const originalRequire = loaded.require.bind(loaded);
-  loaded.require = id => {
-    if (Object.hasOwn(stubs, id)) return stubs[id];
-    if (id === '@/services') return { services: { auth: load('src/services/http/authService.ts').httpAuthService } };
-    if (id === './apiClient') return stubs['@/services/http/apiClient'];
-    if (id.startsWith('@/')) return load(`src/${id.slice(2)}.ts`);
-    return originalRequire(id);
-  };
-  loaded._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX }, fileName: filename,
-  }).outputText, filename);
-  return loaded.exports;
-}
-const EmailScreen = load('app/(onboarding)/email.tsx').default;
-const DetailsScreen = load('app/(onboarding)/details.tsx').default;
-const { usePhoneAuthStore } = load('src/store/phoneAuthStore.ts');
-const { useAuthStore } = load('src/store/authStore.ts');
-const { authLanding } = load('src/utils/authFlow.ts');
+const load = createClientLoader({ stubs });
+services.auth = load('@parkflow/client/services/http/authService').httpAuthService;
+const EmailScreen = load('apps/customer/app/(onboarding)/email.tsx').default;
+const DetailsScreen = load('apps/customer/app/(onboarding)/details.tsx').default;
+const { usePhoneAuthStore } = load('@parkflow/client/store/phoneAuthStore');
+const { useAuthStore } = load('@parkflow/client/store/authStore');
+const { authLanding } = load('@parkflow/client/utils/authFlow');
 let renderer, client;
 const emailConfig = { developmentLoginEnabled: false, developmentEmailLoginEnabled: true, loginMethod: 'email' };
 const phoneConfig = { developmentLoginEnabled: false, developmentEmailLoginEnabled: false, loginMethod: 'phone' };
@@ -130,11 +110,11 @@ test('development email registration normalizes the address, saves the session a
   assert.equal(calls.some(call => call.url.includes('otp') || call.url.includes('/phone/')), false);
 });
 
-test('development email login retains the server administrator identity and destination', async () => {
+test('development email login retains the server administrator identity in the customer app', async () => {
   await mount(); await settle(0, emailConfig); await enter(); await submit();
   assert.deepEqual(calls[1].options.body, { email: 'developer@example.com', purpose: 'login' });
   await settle(1, result({ role: 'ADMIN', fullName: 'Existing Admin' }));
-  assert.deepEqual(routes, [['replace', '/admin']]);
+  assert.deepEqual(routes, [['replace', '/(tabs)/map']]);
   assert.equal(useAuthStore.getState().user.role, 'ADMIN');
   assert.equal(useAuthStore.getState().user.fullName, 'Existing Admin');
 });
