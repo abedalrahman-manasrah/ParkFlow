@@ -36,7 +36,7 @@ implementation remains available only when phone mode is explicitly configured.
 
 | Check | Result |
 | --- | --- |
-| Full frontend suite | 99 passed, 0 failed |
+| Full frontend suite after account-error message correction | 100 passed, 0 failed |
 | All five frontend/shared TypeScript workspaces | Passed |
 | Full server suite on dedicated test DB and Redis DB 15 | 356 passed in 28 files |
 | Server TypeScript and Docker backend/worker builds | Passed |
@@ -57,12 +57,32 @@ The common backend reports ready. Browser checks covered customer name/email
 registration, customer sign-in, Arabic staff sign-in, and a failed delivery staying
 on the email page without an authenticated session.
 
-## Delivery dependency
+## Live delivery and account-policy diagnostics
 
-The local `SMTP_PASSWORD` is not configured. SMTP failure therefore returns an
-error and no session. Public inbox delivery and a complete live OTP sign-in were
-not claimed or tested. Test suites intercept delivery, so they do not send email.
-See [EMAIL_OTP.md](../../EMAIL_OTP.md) to configure the real sender privately.
+The sender was configured privately for Gmail SMTP on port 465 with TLS and an
+App Password. Transport verification authenticated successfully, and a live
+request through the authentication API returned 200 after SMTP acceptance. The
+user confirmed that the email arrived. Credentials were not added to tracked
+files. Test suites still intercept delivery and do not send real email.
+
+Live diagnostics also identified account-policy failures after correct-code
+verification: unknown login addresses returned 404, while an unverified legacy
+contact address returned 409. The frontend now displays separate account-missing
+and account-linking messages rather than a generic code-verification failure.
+The two regression assertions failed before the correction; the full frontend
+suite passed afterward. Account-linking errors leave the user signed out and
+preserve resend deadlines. No authentication check, role requirement, or OTP
+limit was relaxed by this change.
+
+After explicit user approval, the affected ordinary account was prepared for
+fresh email verification through a guarded transaction. Its existing identity,
+role, profile, wallet and related records were preserved, old sessions were
+revoked, and the operation was audited. The email was not marked verified and
+no session was issued by maintenance: a fresh code requested through the
+customer application is still required. This record does not claim that final
+live sign-in step has been completed.
+
+See [EMAIL_OTP.md](../../EMAIL_OTP.md) for setup and existing-account handling.
 
 An address such as `admin@parkflow.local` cannot receive public email. Existing
 administrator identity must be linked to a real receiving address through a

@@ -76,6 +76,17 @@ it can be linked for real email authentication; the backend returns
 `EMAIL_MIGRATION_REQUIRED` for that situation. Do not merge accounts or grant
 roles based only on a matching email.
 
+A correct code can therefore be consumed before an account-policy error is
+returned. The verification screen distinguishes an existing account that needs
+reviewed email linking from a verified login address with no account
+(`EMAIL_ACCOUNT_NOT_FOUND`). Neither error means that the entered code was wrong,
+and neither signs in or creates a user. After an approved linking operation,
+request a fresh code through the application.
+
+Ordinary accounts use the customer application on port 8081. The management
+portal on port 8082 requires an existing administrator or parking operator role;
+email verification does not grant those roles.
+
 Development-created email accounts remain unverified. Successful real email
 verification clears their internal pending state; normal legacy account
 protections remain in place. Restoring phone sign-in also requires an appropriate

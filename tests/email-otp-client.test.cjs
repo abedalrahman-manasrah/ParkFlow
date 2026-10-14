@@ -281,7 +281,27 @@ test('a correct code for an unknown login address never creates or persists a us
   await h.settle(3, { message: 'private internal account detail', details: { serverCode: 'EMAIL_ACCOUNT_NOT_FOUND' } }, true);
   assert.equal(h.auth.getState().user, undefined);
   assert.equal(h.persisted.size, 0);
-  assert.equal(h.notices().some(node => node.props.body === 'onboarding.emailAccountNotFound'), true);
+  assert.equal(h.notices().some(node => node.props.title === 'onboarding.emailAccountNotFoundTitle'
+    && node.props.body === 'onboarding.emailAccountNotFound'), true);
+  assert.deepEqual(h.routes, [['push', '/(onboarding)/otp']]);
+});
+
+test('a verified legacy email requires account linking without signing in or bypassing resend limits', async () => {
+  await openOtp(); await h.complete('123456');
+  await act(async () => h.email().getState().setRetryDelay(120));
+  const retryAvailableAt = h.email().getState().retryAvailableAt;
+  const resendAvailableAt = h.email().getState().resendAvailableAt;
+  await h.settle(3, { message: 'private internal account detail', details: { serverCode: 'EMAIL_MIGRATION_REQUIRED', status: 409 } }, true);
+  assert.equal(h.notices().some(node => node.props.title === 'onboarding.emailAccountLinkRequiredTitle'
+    && node.props.body === 'onboarding.emailAccountLinkRequired'), true);
+  assert.equal(h.notices().some(node => node.props.body === 'onboarding.otpEmailInvalidCode'), false);
+  assert.equal(h.auth.getState().user, undefined);
+  assert.equal(h.auth.getState().session, undefined);
+  assert.equal(h.persisted.size, 0);
+  assert.equal(h.email().getState().retryAvailableAt, retryAvailableAt);
+  assert.equal(h.email().getState().resendAvailableAt, resendAvailableAt);
+  assert.equal(h.root().findAllByProps({ testID: 'otp-resend' }).length, 0);
+  assert.equal(h.calls.length, 4, 'account linking never creates an automatic authentication request');
   assert.deepEqual(h.routes, [['push', '/(onboarding)/otp']]);
 });
 

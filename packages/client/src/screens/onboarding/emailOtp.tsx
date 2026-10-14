@@ -112,8 +112,12 @@ export default function EmailOtpScreen() {
   };
   const waitSeconds = Math.max(resendSeconds, lockSeconds);
   const verifyCode = serverCode(verify.error);
+  const verifyTitle = t(verifyCode === 'EMAIL_MIGRATION_REQUIRED' ? 'onboarding.emailAccountLinkRequiredTitle'
+    : verifyCode === 'EMAIL_ACCOUNT_NOT_FOUND' ? 'onboarding.emailAccountNotFoundTitle'
+    : 'onboarding.otpVerifyFailed');
   const verifyBody = t(verifyCode === 'OTP_LOCKED' ? 'onboarding.otpEmailLocked'
     : verifyCode === 'OTP_EXPIRED' ? 'onboarding.otpEmailExpired'
+    : verifyCode === 'EMAIL_MIGRATION_REQUIRED' ? 'onboarding.emailAccountLinkRequired'
     : verifyCode === 'EMAIL_ACCOUNT_NOT_FOUND' ? 'onboarding.emailAccountNotFound'
     : verifyCode === 'OTP_INVALID' ? 'onboarding.otpEmailInvalidCode'
     : 'onboarding.emailVerifyFailed');
@@ -129,7 +133,7 @@ export default function EmailOtpScreen() {
           length={6} hasError={verify.isError} disabled={blocked} onComplete={submit} testID="otp-input" />
         <AppText variant="bodySm" color="textSecondary">{t('onboarding.otpEmailSecurity')}</AppText>
         {expired ? <InlineNotice tone="warning" title={t('onboarding.otpExpired')} body={t('onboarding.otpEmailExpired')} /> : null}
-        {verify.isError ? <InlineNotice tone="danger" title={t('onboarding.otpVerifyFailed')} body={verifyBody} /> : null}
+        {verify.isError ? <InlineNotice tone="danger" title={verifyTitle} body={verifyBody} /> : null}
         {resend.isError ? <InlineNotice tone="danger" title={t('common.somethingWrong')} body={t('onboarding.emailRequestFailed')} /> : null}
         {lockSeconds > 0 ? <InlineNotice tone="warning" title={t('onboarding.otpWait')} body={t('onboarding.otpRetryIn', { seconds: lockSeconds })} /> : null}
         <View style={{ alignItems: 'center', gap: spacing.md }}>
