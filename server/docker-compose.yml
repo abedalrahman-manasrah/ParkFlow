@@ -59,7 +59,7 @@ services:
       REDIS_URL: redis://redis:6379
       S3_ENDPOINT: http://minio:9000
     ports:
-      - "4000:4000"
+      - "${BACKEND_BIND_ADDRESS:-127.0.0.1}:4000:4000"
     command: sh -c "npx prisma migrate deploy && node dist/src/server.js"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]

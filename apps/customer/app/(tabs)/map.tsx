@@ -44,6 +44,7 @@ import { haptics } from '@parkflow/client/utils/haptics';
 import { isValidGeoPoint, normalizeGeoPoint, normalizeGeoPoints } from '@parkflow/client/utils/coordinates';
 import { useMapLayersStore } from '@parkflow/client/store/mapLayersStore';
 import { useReservationRouteStore } from '@parkflow/client/store/reservationRouteStore';
+import { useAuthStore } from '@parkflow/client/store/authStore';
 import {
   ramallahParkingLocations,
   ramallahParkingZoneIds,
@@ -65,6 +66,12 @@ const FASTEST_PARKING_ROUTE = {
 const round4 = (value: number) => Math.round(value * 10_000) / 10_000;
 
 export default function MapScreen() {
+  const userId = useAuthStore((state) => state.user?.id);
+  // Reset local GPS, route and draft state when the account changes; token refresh keeps the same map.
+  return <AccountMapScreen key={userId ?? 'signed-out'} />;
+}
+
+function AccountMapScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { t, locale } = useLocale();
@@ -111,6 +118,10 @@ export default function MapScreen() {
   const pendingReservationRouteZoneId = useReservationRouteStore((state) => state.pendingZoneId);
   const storedRouteOrigin = useReservationRouteStore((state) => state.origin);
   const storedRouteOriginMode = useReservationRouteStore((state) => state.originMode);
+  // Async callbacks keep the initiating account's actions when GPS completes after a session change.
+  const setRouteOrigin = useReservationRouteStore((state) => state.setOrigin);
+  const consumeReservationRoute = useReservationRouteStore((state) => state.consume);
+  const saveReturnToCar = useReservationRouteStore((state) => state.saveReturnToCar);
   const evActive = primaryMapCategory === 'ev_charging';
   const ev = useEvStations(evActive, region);
   useEffect(() => { if (!evActive) setEvFiltersOpen(false); }, [evActive]);
@@ -297,6 +308,7 @@ export default function MapScreen() {
   }, [locationMessage]);
 
   const recenter = useCallback(async () => {
+    if (useReservationRouteStore.getState().setOrigin !== setRouteOrigin) return;
     setEntryMenuOpen(false);
     setLocationMessage(undefined);
     haptics.light();
@@ -311,15 +323,16 @@ export default function MapScreen() {
       return;
     }
     const point = location ?? (await requestLocation());
+    if (useReservationRouteStore.getState().setOrigin !== setRouteOrigin) return;
     if (!point) {
       setLocationMessage(t('map.locationDeniedBody'));
       return;
     }
-    useReservationRouteStore.getState().setOrigin(point, 'gps');
+    setRouteOrigin(point, 'gps');
     const next: GeoRegion = { ...point, latitudeDelta: 0.014, longitudeDelta: 0.014 };
     setRegion(next);
     mapRef.current?.animateToRegion(next, 450);
-  }, [testLocationMode, testLocation, location, requestLocation, t]);
+  }, [testLocationMode, testLocation, location, requestLocation, setRouteOrigin, t]);
 
   const openZone = useCallback((zone: ParkingZone) => {
     haptics.select();
@@ -353,30 +366,31 @@ export default function MapScreen() {
 
   const reserveParking = useCallback(
     (zone: ParkingZone) => {
-      useReservationRouteStore.getState().setOrigin(
+      setRouteOrigin(
         routeOrigin,
         testLocation ? 'test' : 'gps',
       );
       setSelectedZoneId(undefined);
       router.push({ pathname: '/parking/layout/[zoneId]', params: { zoneId: zone.id } });
     },
-    [routeOrigin, router, testLocation],
+    [routeOrigin, router, setRouteOrigin, testLocation],
   );
 
   const viewParkingMap = useCallback(
     (zone: ParkingZone) => {
-      useReservationRouteStore.getState().setOrigin(
+      setRouteOrigin(
         routeOrigin,
         testLocation ? 'test' : 'gps',
       );
       setSelectedZoneId(undefined);
       router.push({ pathname: '/parking/layout/[zoneId]', params: { zoneId: zone.id } });
     },
-    [routeOrigin, router, testLocation],
+    [routeOrigin, router, setRouteOrigin, testLocation],
   );
 
   const startRoute = useCallback(
     async (destination: RouteDestination) => {
+      if (useReservationRouteStore.getState().setOrigin !== setRouteOrigin) return false;
       if (routeStartInFlightRef.current) return false;
       routeStartInFlightRef.current = true;
       try {
@@ -392,6 +406,7 @@ export default function MapScreen() {
           return false;
         }
         origin ??= location ?? storedRouteOrigin ?? (await requestLocation());
+        if (useReservationRouteStore.getState().setOrigin !== setRouteOrigin) return false;
         if (!origin) {
           setLocationMessage(t('map.locationDeniedBody'));
           return false;
@@ -403,7 +418,7 @@ export default function MapScreen() {
         }
         haptics.select();
         const originMode = testLocation || storedRouteOriginMode === 'test' ? 'test' : 'gps';
-        useReservationRouteStore.getState().setOrigin(normalizedOrigin, originMode);
+        setRouteOrigin(normalizedOrigin, originMode);
         setRouteOriginOverride(normalizedOrigin);
         setSelectedZoneId(undefined);
         setNearbyExpanded(false);
@@ -411,14 +426,14 @@ export default function MapScreen() {
         setSelectedRouteId('current');
         setAlternativeDismissed(false);
         setRouteTarget({ ...destination, location: normalizedDestination });
-        useReservationRouteStore.getState().consume();
+        consumeReservationRoute();
         ev.select(undefined);
         return true;
       } finally {
         routeStartInFlightRef.current = false;
       }
     },
-    [location, requestLocation, storedRouteOrigin, storedRouteOriginMode, t, testLocation, testLocationMode, ev.select],
+    [consumeReservationRoute, location, requestLocation, setRouteOrigin, storedRouteOrigin, storedRouteOriginMode, t, testLocation, testLocationMode, ev.select],
   );
 
   useEffect(() => {
@@ -428,12 +443,12 @@ export default function MapScreen() {
     if (!zone) {
       if (!zonesPending) {
         setLocationMessage(t('ramallahParking.routeUnavailable'));
-        useReservationRouteStore.getState().consume();
+        consumeReservationRoute();
       }
       return;
     }
     void startRoute(parkingDestination(zone));
-  }, [mapFocused, pendingReservationRouteZoneId, startRoute, t, zones, zonesPending]);
+  }, [consumeReservationRoute, mapFocused, pendingReservationRouteZoneId, startRoute, t, zones, zonesPending]);
 
   const openParkingLocation = useCallback((parkingLocation: RamallahParkingLocation) => {
     const zone =
@@ -470,13 +485,13 @@ export default function MapScreen() {
       if (enabled) {
         setTestLocation(undefined);
         setRouteOriginOverride(undefined);
-        useReservationRouteStore.getState().setOrigin(undefined);
+        setRouteOrigin(undefined);
       } else {
         setEntryMenuOpen(false);
       }
       return !enabled;
     });
-  }, []);
+  }, [setRouteOrigin]);
 
   const handleMapPress = useCallback(
     (coordinate: GeoPoint) => {
@@ -487,10 +502,10 @@ export default function MapScreen() {
       if (!testLocationMode) return;
       if (!isValidGeoPoint(coordinate)) return;
       setTestLocation(coordinate);
-      useReservationRouteStore.getState().setOrigin(coordinate, 'test');
+      setRouteOrigin(coordinate, 'test');
       setLocationMessage(undefined);
     },
-    [reportLocationPicking, testLocationMode],
+    [reportLocationPicking, setRouteOrigin, testLocationMode],
   );
 
   const beginReportLocation = useCallback((type: RoadReportType) => {
@@ -774,7 +789,7 @@ export default function MapScreen() {
         onReserve={reserveParking}
         onViewParkingMap={viewParkingMap}
         onSaveReturn={(zone) => {
-          useReservationRouteStore.getState().saveReturnToCar({ zoneId: zone.id, facilityId: zone.facilityId, savedLocation: zone.location });
+          saveReturnToCar({ zoneId: zone.id, facilityId: zone.facilityId, savedLocation: zone.location });
           setSelectedZoneId(undefined);
           router.push('/parking/return');
         }}

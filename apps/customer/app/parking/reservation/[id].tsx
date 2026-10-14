@@ -33,13 +33,14 @@ export default function ReservationDetailsScreen() {
   const { colors } = useTheme();
   const { data: reservation, isPending, isError, error, refetch } = useReservation(id);
   const cancel = useCancelReservation();
+  const requestRoute = useReservationRouteStore((s) => s.request);
   const canCancel = reservation?.status === 'confirmed' && Date.parse(reservation.startTime) > Date.now();
   const isLiveInventory = reservation?.inventoryMode === 'live';
   const liveFeedVerified = isLiveInventory && reservation?.guarantee === 'operator_backed';
 
   const routeToParking = () => {
     if (!reservation) return;
-    useReservationRouteStore.getState().request(reservation.parkingZoneId);
+    requestRoute(reservation.parkingZoneId);
     router.navigate('/(tabs)/map');
   };
 

@@ -26,6 +26,7 @@ const stubs = {
   '@parkflow/client/hooks/useBlockHardwareBack': { useBlockHardwareBack() {} },
   '@parkflow/client/utils/haptics': { haptics: { success() {}, error() {} } },
   '@parkflow/client/services': { services },
+  '@parkflow/client/store/reservationRouteStore': { clearReservationRouteForAccountChange: async () => () => {} },
   '@parkflow/client/services/storage': { secureStorage: {
     getItem: async key => persisted.get(key) ?? null,
     setItem: async (key, value) => { persisted.set(key, value); },

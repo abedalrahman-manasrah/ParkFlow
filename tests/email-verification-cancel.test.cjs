@@ -7,6 +7,7 @@ test('an email verification response from an abandoned screen cannot replace a n
   let active = true;
   const persisted = new Map();
   const load = createClientLoader({ stubs: {
+    '@parkflow/client/store/reservationRouteStore': { clearReservationRouteForAccountChange: async () => () => {} },
     '@parkflow/client/services/http/apiClient': { api: () => new Promise(resolve => { completeVerification = resolve; }) },
     '@parkflow/client/services/storage': {
       secureStorage: {
@@ -37,6 +38,7 @@ function slowVerificationStorage() {
   let first = true;
   const prior = {session: {userId: 'prior-user', accessToken: 'prior-access', refreshToken: 'prior-refresh'}, user: {id: 'prior-user', fullName: 'Prior User'}};
   const load = createClientLoader({ stubs: {
+    '@parkflow/client/store/reservationRouteStore': { clearReservationRouteForAccountChange: async () => () => {} },
     '@parkflow/client/services/http/apiClient': { api: async () => prior },
     '@parkflow/client/services/storage': {
       secureStorage: {

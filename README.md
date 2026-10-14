@@ -42,7 +42,9 @@ Requirements: Node.js, npm, and Docker Desktop with its Linux engine running.
    `server/.env.example` to `server/.env`.
    For a browser on this computer, set each frontend's
    `EXPO_PUBLIC_API_BASE_URL=http://localhost:4000/api/v1`. For a physical device,
-   use the computer's LAN IP instead of `localhost`.
+   use the computer's LAN IP instead of `localhost`. Device testing also requires
+   setting `BACKEND_BIND_ADDRESS` in `server/.env` to that LAN address and
+   recreating the backend; keep the default `127.0.0.1` for local browser testing.
 3. In `server/.env`, generate private values for the JWT secrets and payment
    webhook secret. Set `PROFILE_ENCRYPTION_KEY` to a private 32-byte key encoded
    as 64 hexadecimal characters for national ID encryption. Keep this key and
@@ -136,8 +138,8 @@ Legacy phone authentication is available only by explicitly selecting
 | Object storage API | 9002 | 9000 |
 | Object storage console | 9003 | 9001 |
 
-The worker does not expose a port. PostgreSQL, Redis and object storage are bound
-to the host loopback address. The API is under `/api/v1`; `/ready` checks service
+The worker does not expose a port. The backend, PostgreSQL, Redis and object storage
+are bound to the host loopback address by default. The API is under `/api/v1`; `/ready` checks service
 readiness. On the management origin, administrative pages include `/admin`, `/admin/manage`,
 `/admin/vehicles` and `/admin/appearance`; the operator workspace is `/operator`.
 Access is enforced by the backend, not only by hiding pages.

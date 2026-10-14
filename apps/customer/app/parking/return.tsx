@@ -22,6 +22,7 @@ export default function ReturnToCarScreen() {
   const router = useRouter(); const { t, locale } = useLocale();
   const saved = useReservationRouteStore((s) => s.returnToCar);
   const saveReturnToCar = useReservationRouteStore((s) => s.saveReturnToCar);
+  const clearReturnToCar = useReservationRouteStore((s) => s.clearReturnToCar);
   const { data: navigation } = useFacilityNavigation(saved?.facilityId);
   const [entrance, setEntrance] = useState('');
   const [floor, setFloor] = useState('');
@@ -144,7 +145,7 @@ export default function ReturnToCarScreen() {
           }
         }
       }
-      useReservationRouteStore.getState().clearReturnToCar();
+      clearReturnToCar();
       router.back();
     } catch {
       setRemoveError(true);

@@ -31,6 +31,10 @@ function persistInOrder<T>(operation: () => Promise<T>): Promise<T> {
   persistenceTail = pending.catch(() => undefined);
   return pending;
 }
+/** Serialize completion of authenticated storage operations with login publication. */
+export function withAuthenticationPersistence<T>(operation: () => Promise<T>): Promise<T> {
+  return persistInOrder(operation);
+}
 function cancelledVerification() {
   const error = new Error('Authentication changed while verification was completing');
   error.name = 'AbortError';
@@ -43,29 +47,42 @@ export const useAuthStore = create<AuthState>()((set) => ({
   hydrated: false,
 
   hydrate: async () => {
+    let parsed: PersistedAuth | undefined;
+    const epoch = authenticationEpoch;
     try {
-      const raw = await secureStorage.getItem(STORAGE_KEYS.authSession);
-      if (!raw) {
+      await persistInOrder(async () => {
+        if (epoch !== authenticationEpoch) return;
+        try {
+          const raw = await secureStorage.getItem(STORAGE_KEYS.authSession);
+          if (epoch !== authenticationEpoch || !raw) return;
+          parsed = JSON.parse(raw) as PersistedAuth;
+          // A stored user is a rendering cache; the backend refreshes identity and authorizes every request.
+          set({ session: parsed.session, user: parsed.user });
+        } catch {
+          await secureStorage.removeItem(STORAGE_KEYS.authSession).catch(() => undefined);
+        }
+      });
+      if (!parsed) {
         set({ hydrated: true });
         return;
       }
-      const parsed = JSON.parse(raw) as PersistedAuth;
-      // A stored user is a rendering cache; the backend refreshes identity and authorizes every request.
-      set({ session: parsed.session, user: parsed.user });
+      // Network verification stays outside the queue: refreshing may itself
+      // publish a session and must be able to acquire the persistence queue.
       const { api } = await import('../services/http/apiClient');
       try {
         const user = await api<User>('/auth/me');
         useAuthStore.getState().setUser(user);
       } catch (error) {
         // Preserve the refresh token for a temporary network outage, never for a revoked session.
-        if (error instanceof Error && 'code' in error && error.code === 'unauthorized') {
+        if (error instanceof Error && 'code' in error && error.code === 'unauthorized'
+          && epoch === authenticationEpoch
+          && (error as { details?: { serverCode?: string } }).details?.serverCode !== 'SESSION_CHANGED') {
           await useAuthStore.getState().signOut();
         }
       }
       set({ hydrated: true });
     } catch {
-      // A corrupt blob must never brick the app — drop it and start signed out.
-      await secureStorage.removeItem(STORAGE_KEYS.authSession).catch(() => undefined);
+      // Storage failure must never brick boot or remove a newer session.
       set({ hydrated: true });
     }
   },
@@ -75,19 +92,29 @@ export const useAuthStore = create<AuthState>()((set) => ({
     const epoch = ++authenticationEpoch;
     const current = () => epoch === authenticationEpoch && shouldApply?.() !== false;
     await persistInOrder(async () => {
-      if (!current()) throw cancelledVerification();
-      await secureStorage.setItem(STORAGE_KEYS.authSession, JSON.stringify({ session, user }));
-      if (!current()) {
-        // No later auth write can run until this restoration completes.
-        const state = useAuthStore.getState();
-        if (state.session && state.user) {
-          await secureStorage.setItem(STORAGE_KEYS.authSession, JSON.stringify({ session: state.session, user: state.user }));
-        } else {
-          await secureStorage.removeItem(STORAGE_KEYS.authSession);
+      let finishRouteChange: (() => void) | undefined;
+      try {
+        if (!current()) throw cancelledVerification();
+        if (useAuthStore.getState().user?.id !== user.id) {
+          const { clearReservationRouteForAccountChange } = await import('./reservationRouteStore');
+          finishRouteChange = await clearReservationRouteForAccountChange();
+          if (!current()) throw cancelledVerification();
         }
-        throw cancelledVerification();
+        await secureStorage.setItem(STORAGE_KEYS.authSession, JSON.stringify({ session, user }));
+        if (!current()) {
+          // No later auth write can run until this restoration completes.
+          const state = useAuthStore.getState();
+          if (state.session && state.user) {
+            await secureStorage.setItem(STORAGE_KEYS.authSession, JSON.stringify({ session: state.session, user: state.user }));
+          } else {
+            await secureStorage.removeItem(STORAGE_KEYS.authSession);
+          }
+          throw cancelledVerification();
+        }
+        set({ session, user });
+      } finally {
+        finishRouteChange?.();
       }
-      set({ session, user });
     });
   },
 
@@ -107,12 +134,18 @@ export const useAuthStore = create<AuthState>()((set) => ({
     ++authenticationEpoch;
     const previousUserId = useAuthStore.getState().user?.id;
     await persistInOrder(async () => {
-      if (previousUserId) {
-        const { retryQueue } = await import('../offline/retryQueue');
-        await retryQueue.clearUser(previousUserId);
+      const { clearReservationRouteForAccountChange } = await import('./reservationRouteStore');
+      const finishRouteChange = await clearReservationRouteForAccountChange();
+      try {
+        if (previousUserId) {
+          const { retryQueue } = await import('../offline/retryQueue');
+          await retryQueue.clearUser(previousUserId);
+        }
+        await secureStorage.removeItem(STORAGE_KEYS.authSession);
+        set({ session: undefined, user: undefined });
+      } finally {
+        finishRouteChange();
       }
-      await secureStorage.removeItem(STORAGE_KEYS.authSession);
-      set({ session: undefined, user: undefined });
     });
   },
 }));

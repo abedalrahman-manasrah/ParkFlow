@@ -156,12 +156,12 @@ export function verifyAccess(token:string){try{
  assert(v.kind==='access'&&typeof v.sub==='string'&&typeof v.sid==='string','UNAUTHORIZED','Invalid token',401);return {userId:v.sub,sid:v.sid,exp:v.exp!};
  }catch{throw new ApiError(401,'UNAUTHORIZED','Invalid or expired access token');}}
 export async function authenticate(token:string){const claims=verifyAccess(token);const record=await db.refreshToken.findUnique({where:{id:claims.sid},include:{user:true}});
- assert(record&&!record.revokedAt&&record.expiresAt>new Date()&&record.user.status==='ACTIVE','UNAUTHORIZED','Session has ended',401);
+ assert(record&&record.userId===claims.userId&&!record.revokedAt&&record.expiresAt>new Date()&&record.user.status==='ACTIVE','UNAUTHORIZED','Session has ended',401);
  if(record.user.role==='ADMIN'){
   const role=await atomic(async tx=>{
    await lock(tx,`refresh:${record.familyId}`);
    const current=await tx.refreshToken.findUnique({where:{id:record.id},include:{user:true}});
-   if(!current||current.revokedAt||current.expiresAt<=new Date()||current.user.status!=='ACTIVE')return null;
+   if(!current||current.userId!==claims.userId||current.revokedAt||current.expiresAt<=new Date()||current.user.status!=='ACTIVE')return null;
    if(await revokeExpiredAdminFamily(tx,current.user,current.familyId))return null;
    return current.user.role;
   });

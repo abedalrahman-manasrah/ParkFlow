@@ -79,8 +79,12 @@ fresh email verification through a guarded transaction. Its existing identity,
 role, profile, wallet and related records were preserved, old sessions were
 revoked, and the operation was audited. The email was not marked verified and
 no session was issued by maintenance: a fresh code requested through the
-customer application is still required. This record does not claim that final
-live sign-in step has been completed.
+customer application was required. The user subsequently confirmed that this
+fresh sign-in worked; the account remains an ordinary USER with its existing data.
+
+For the subsequent account-isolation fixes, private key rotation, current
+dependency findings and final verification results, see the
+[email settings security audit](../security/2026-10-14-email-settings-audit.md).
 
 See [EMAIL_OTP.md](../../EMAIL_OTP.md) for setup and existing-account handling.
 
