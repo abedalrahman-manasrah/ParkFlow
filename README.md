@@ -6,16 +6,16 @@ the administrator/parking-owner web portal. It supports finding parking, reserva
 wallet payments, community road reports, and workspaces for administrators and
 parking operators. The interface supports English and Arabic with RTL layouts.
 
-This is a development and pilot implementation. Payment delivery, SMS delivery,
+This is a development and pilot implementation. Payment delivery, email delivery,
 verified vehicle associations, and trustworthy occupancy data require configured
 providers or operator processes before public use.
 
 ## What is included
 
-- Phone registration and passwordless sign-in with Palestinian `+970` numbers,
-  expiring verification challenges, attempt limits and resend limits. Provider
-  adapters remain available while phone sign-in is temporarily paused for team
-  development.
+- Email registration and passwordless sign-in with emailed six-digit codes,
+  five-minute challenges, resend/send limits and address locks. New accounts
+  are created only after successful verification. Legacy phone provider code
+  remains inactive when the normal email method is selected.
 - Optional development email sign-in without a password or code. Existing
   accounts retain their roles; registration creates ordinary users. These
   sessions are rejected when the mode is disabled, and production refuses to
@@ -48,6 +48,9 @@ Requirements: Node.js, npm, and Docker Desktop with its Linux engine running.
    as 64 hexadecimal characters for national ID encryption. Keep this key and
    database backups secure. Example local database and storage credentials are
    intended for development only.
+   Configure SMTP delivery using [EMAIL_OTP.md](EMAIL_OTP.md). Keep
+   `AUTH_LOGIN_METHOD=email` and both `DEV_SKIP_*_OTP` flags false for normal
+   email verification. Sender credentials belong only in the private server file.
 4. Start the backend services from `server`:
 
    ```powershell
@@ -55,7 +58,7 @@ Requirements: Node.js, npm, and Docker Desktop with its Linux engine running.
    docker compose exec backend npm run db:seed
    ```
 
-   On a fresh development database, set `SEED_ADMIN_EMAIL=admin@parkflow.local`
+   On a fresh development database, set `SEED_ADMIN_EMAIL` to a real receiving address
    before seeding if an administrator is needed. The seed does not promote an
    existing user. Owners and staff are assigned through the administrator's
    management workspace.
@@ -79,7 +82,20 @@ Requirements: Node.js, npm, and Docker Desktop with its Linux engine running.
 See the [frontend team ownership guide](docs/operations/frontend-team-guide.md)
 for working independently and coordinating shared API/design changes.
 
-## Temporary team sign-in
+## Registration and sign-in
+
+Customer registration starts with a name and email, sends a six-digit code by
+email, and opens profile details only after verification. Existing customers and
+staff enter their email and the received code. Completed customer accounts land
+on the map; management opens `/admin` or `/operator` according to the assigned
+role. Ordinary accounts cannot enter staff workspaces.
+
+Normal configuration uses `AUTH_LOGIN_METHOD=email`, `DEV_SKIP_EMAIL_OTP=false`
+and `DEV_SKIP_PHONE_OTP=false`. Phone authentication endpoints are disabled in
+email mode, even for direct requests. See [EMAIL_OTP.md](EMAIL_OTP.md) for delivery
+settings, security limits, existing account ownership and administrator setup.
+
+## Optional trusted-team development shortcut
 
 The committed example configuration keeps authentication shortcuts disabled.
 To use email while developing in a trusted environment, explicitly set these
@@ -87,6 +103,7 @@ values in the private `server/.env`:
 
 ```dotenv
 NODE_ENV=development
+AUTH_LOGIN_METHOD=email
 DEV_SKIP_EMAIL_OTP=true
 DEV_SKIP_PHONE_OTP=false
 ```
@@ -101,13 +118,11 @@ profile. This mode grants access based on knowing an email address, so limit the
 development instance to the trusted team. It does not mark new emails as verified.
 
 Set both shortcut flags to `false` and recreate the backend and worker to restore
-phone verification. Configure an SMS provider separately; existing provider code
-and verification limits are retained. Development email sessions stop working
-after restoration. A new development account without a phone needs a verified
-phone and an appropriate account-linking process before real use.
+email verification. Development email sessions stop working after restoration;
+pending development accounts must verify their email to sign in normally.
 
-See [phone authentication and restoration instructions](PHONE_AUTH.md), including
-Arabic instructions, and [SMTP email verification setup](EMAIL_OTP.md).
+Legacy phone authentication is available only by explicitly selecting
+`AUTH_LOGIN_METHOD=phone` and configuring its provider. See [PHONE_AUTH.md](PHONE_AUTH.md).
 
 ## Local ports
 

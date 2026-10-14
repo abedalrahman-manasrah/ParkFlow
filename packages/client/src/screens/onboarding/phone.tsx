@@ -65,9 +65,9 @@ export default function PhoneScreen() {
     },
   });
   if (user) return <Redirect href={authLanding(user, clientApplication)} />;
-  if (config?.developmentEmailLoginEnabled) return <Redirect href="/(onboarding)/email" />;
+  if (config?.loginMethod === 'email') return <Redirect href="/(onboarding)/email" />;
   if (config && purpose === 'register' && !fullName) return <Redirect href="/(onboarding)/name" />;
-  const configReady = !!config && !configFailed;
+  const configReady = config?.loginMethod === 'phone' && !configFailed;
   const pending = request.isPending || developmentLogin.isPending;
   const activeRequest = developmentLoginEnabled ? developmentLogin : request;
   const submit = () => {

@@ -40,6 +40,7 @@ services.auth = load('@parkflow/client/services/http/authService').httpAuthServi
 const EmailScreen = load('apps/customer/app/(onboarding)/email.tsx').default;
 const DetailsScreen = load('apps/customer/app/(onboarding)/details.tsx').default;
 const { usePhoneAuthStore } = load('@parkflow/client/store/phoneAuthStore');
+const { useEmailAuthStore } = load('packages/client/src/store/emailAuthStore.ts');
 const { useAuthStore } = load('@parkflow/client/store/authStore');
 const { authLanding } = load('@parkflow/client/utils/authFlow');
 let renderer, client;
@@ -67,6 +68,7 @@ const result = (overrides = {}) => ({
 beforeEach(() => {
   calls.length = 0; routes.length = 0; persisted.clear();
   usePhoneAuthStore.getState().begin('login');
+  useEmailAuthStore.getState().reset();
   useAuthStore.setState({ session: undefined, user: undefined, hydrated: true });
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false, gcTime: Infinity } } });
 });
@@ -145,7 +147,7 @@ test('invalid email input cannot trigger development sign-in', async () => {
   await submit(); assert.equal(calls.length, 1);
 });
 
-test('turning email development off restores phone entry without requesting email OTP', async () => {
+test('explicit phone configuration restores phone entry without requesting email OTP', async () => {
   await mount(); await settle(0, phoneConfig);
   assert.equal(renderer.root.findByType('Redirect').props.href, '/(onboarding)/phone');
   assert.equal(calls.length, 1);
@@ -175,15 +177,19 @@ test('email development rate limits use their own deadline without changing phon
   assert.equal(notices().some(notice => notice.props.title === 'onboarding.otpWait'), true);
 });
 
-test('malformed or conflicting configuration cannot enable development email sign-in', async () => {
+test('malformed configuration fails closed while normal email mode offers OTP without development sign-in', async () => {
   await mount(); await enter();
   await settle(0, { developmentLoginEnabled: false, developmentEmailLoginEnabled: 'true', loginMethod: 'email' });
   assert.equal(button().props.disabled, true);
   await submit(); assert.equal(calls.length, 1);
   await act(async () => notices().find(notice => notice.props.action).props.action.onPress());
   await settle(1, { developmentLoginEnabled: false, developmentEmailLoginEnabled: false, loginMethod: 'email' });
-  assert.equal(button().props.disabled, true);
+  assert.equal(button().props.disabled, false);
+  assert.equal(button().props.label, 'onboarding.sendCode');
   assert.equal(renderer.root.findAllByType('Redirect').length, 0);
+  await submit();
+  assert.equal(calls[2].url, '/auth/request-otp');
+  assert.equal(calls.some(call => call.url === '/auth/dev-login'), false);
 });
 
 test('development email profile completion does not claim a verified phone or email', async () => {

@@ -36,16 +36,19 @@ export default function PersonalInfoScreen() {
   const [fullName, setFullName] = useState(user?.fullName ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
   const [nationalId, setNationalId] = useState('');
-  const normalizedEmail = email.trim().toLowerCase();
-  const emailValid = !normalizedEmail || z.email().max(254).safeParse(normalizedEmail).success;
-  const idValid = !nationalId || /^\d{9}$/.test(nationalId);
   const phoneVerified = Boolean(user?.phoneVerifiedAt);
+  const emailVerified = Boolean(user?.emailVerifiedAt);
+  const profileVerified = phoneVerified || emailVerified;
+  const contactEmailEditable = phoneVerified && !emailVerified;
+  const normalizedEmail = email.trim().toLowerCase();
+  const emailValid = !contactEmailEditable || !normalizedEmail || z.email().max(254).safeParse(normalizedEmail).success;
+  const idValid = !nationalId || /^\d{9}$/.test(nationalId);
 
   const save = useMutation({
     mutationFn: () => services.profile.update(user!.id, {
       fullName: fullName.trim(),
-      ...(phoneVerified && normalizedEmail !== (user?.email ?? '') ? { email: normalizedEmail || null } : {}),
-      ...(phoneVerified && nationalId ? { nationalId } : {}),
+      ...(contactEmailEditable && normalizedEmail !== (user?.email ?? '') ? { email: normalizedEmail || null } : {}),
+      ...(profileVerified && nationalId ? { nationalId } : {}),
     }),
     onSuccess: (updated) => {
       haptics.success();
@@ -57,7 +60,7 @@ export default function PersonalInfoScreen() {
   });
 
   const nameValid = fullName.trim().length >= 2 && fullName.trim().length <= 60;
-  const dirty = fullName !== (user?.fullName ?? '') || normalizedEmail !== (user?.email ?? '') || Boolean(nationalId);
+  const dirty = fullName !== (user?.fullName ?? '') || (contactEmailEditable && normalizedEmail !== (user?.email ?? '')) || Boolean(nationalId);
 
   return (
     <Screen keyboardAvoiding>
@@ -80,13 +83,14 @@ export default function PersonalInfoScreen() {
           />
 
           <DetailRow label={t('profile.phone')} value={user?.phone ?? undefined} />
-          {phoneVerified ? (
+          {profileVerified ? (
             <>
-              <AppText variant="bodySm" color="textSecondary">{t('profile.phoneReadOnly')}</AppText>
-              <TextField label={t('profile.email')} value={email} onChangeText={setEmail}
+              {phoneVerified ? <AppText variant="bodySm" color="textSecondary">{t('profile.phoneReadOnly')}</AppText> : null}
+              <TextField label={t('profile.email')} value={emailVerified ? user?.email ?? '' : email}
+                onChangeText={contactEmailEditable ? setEmail : undefined} editable={contactEmailEditable}
                 autoComplete="email" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} maxLength={254}
                 error={!emailValid ? t('onboarding.emailInvalid') : undefined} />
-              <AppText variant="bodySm" color="textSecondary">{t('profile.contactUnverified')}</AppText>
+              <AppText variant="bodySm" color="textSecondary">{t(emailVerified ? 'profile.emailReadOnly' : 'profile.contactUnverified')}</AppText>
               <DetailRow label={t('profile.nationalId')} value={user?.nationalIdMasked ?? '—'} />
               <TextField label={t('profile.nationalIdReplace')} value={nationalId}
                 onChangeText={(value) => setNationalId(asciiDigits(value).replace(/\D/g, ''))}

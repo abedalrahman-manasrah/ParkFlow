@@ -1,7 +1,7 @@
 import { clientApplication } from '../../runtime/application';
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { View } from 'react-native';
-import { Redirect, useRouter } from 'expo-router';
+import { Redirect, useFocusEffect, useRouter } from 'expo-router';
 import { useMutation } from '@tanstack/react-query';
 import { AppButton, AppHeader, AppText, InlineNotice, OtpInput, PressableScale, Reveal, Screen } from '../../components/ui/index';
 import { spacing } from '@parkflow/design/spacing';
@@ -13,8 +13,33 @@ import { useAuthStore } from '../../store/authStore';
 import { authLanding, retryDelaySeconds, verificationRetryDelay } from '../../utils/authFlow';
 import { errorMessage } from '../../utils/errors';
 import { haptics } from '../../utils/haptics';
+import type { AuthConfig } from '@parkflow/contracts/services';
+import EmailOtpScreen from './emailOtp';
 
 export default function OtpScreen() {
+  const { t } = useLocale();
+  const user = useAuthStore((state) => state.user);
+  const [config, setConfig] = useState<AuthConfig>();
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    setConfig(undefined);
+    setFailed(false);
+    void services.auth.getConfig().then((next) => {
+      if (active) setConfig(next);
+    }).catch(() => { if (active) setFailed(true); });
+    return () => { active = false; setConfig(undefined); };
+  }, [attempt]));
+  if (user) return <Redirect href={authLanding(user, clientApplication)} />;
+  if (!config) return <Screen><AppHeader />{failed
+    ? <InlineNotice tone="danger" title={t('common.somethingWrong')} body={t('onboarding.authConfigFailed')}
+      action={{ label: t('common.retry'), onPress: () => setAttempt((value) => value + 1) }} />
+    : <AppText>{t('common.loading')}</AppText>}</Screen>;
+  return config.loginMethod === 'email' ? <EmailOtpScreen /> : <PhoneOtpScreen />;
+}
+
+function PhoneOtpScreen() {
   const router = useRouter();
   const { t } = useLocale();
   const user = useAuthStore((state) => state.user);

@@ -1,9 +1,14 @@
 # SMTP email verification setup
 
-Phone verification is the primary normal onboarding flow. SMTP email verification
-remains available in the backend. During temporary development email sign-in,
-code request and verification endpoints are paused. See [PHONE_AUTH.md](PHONE_AUTH.md)
-for the active development flow and how to restore verification.
+Email verification is the normal registration and sign-in flow for customers,
+administrators and parking operators. Registration is name -> email -> emailed
+six-digit code -> profile details -> optional vehicle setup (customer only).
+Returning accounts enter their email and code without a password. Staff accounts
+retain their assigned roles; new registrations are ordinary accounts.
+
+التسجيل والدخول الآن بالبريد ورمز يصله عبر البريد. الهاتف غير مطلوب للدخول،
+وطرق إرسال وفحص SMS موقوفة في وضع البريد. حساب الأدمن وأصحاب المواقف يستخدم
+نفس التحقق، ثم يفتح مساحة العمل حسب الصلاحيات الموجودة.
 
 ## Configure delivery
 
@@ -15,6 +20,7 @@ for the active development flow and how to restore verification.
 
    ```dotenv
    EMAIL_PROVIDER=smtp
+   AUTH_LOGIN_METHOD=email
    EMAIL_FROM=your-email@example.com
    SMTP_HOST=smtp.gmail.com
    SMTP_PORT=465
@@ -26,7 +32,8 @@ for the active development flow and how to restore verification.
    ```
 
 Replace the example address and supply the App Password without its display
-spaces. For another SMTP provider, change the host, port and TLS settings.
+spaces. For another SMTP provider, change the host, port and TLS settings. For
+port 587, set `SMTP_SECURE=false`; the adapter still requires STARTTLS.
 The adapter is `server/src/providers/email.ts`; transport options follow
 [Nodemailer SMTP configuration](https://nodemailer.com/smtp).
 
@@ -41,17 +48,23 @@ Do not overwrite a configured `.env` with the example.
 
 ## Verification API
 
-Request: `POST /api/v1/auth/request-otp` with
-`{"email":"recipient@example.com"}`. The response contains `challengeId`,
+Registration: `POST /api/v1/auth/request-otp` with
+`{"email":"recipient@example.com","purpose":"register","fullName":"New User"}`.
+Sign-in uses `{"email":"recipient@example.com","purpose":"login"}`. A login for
+an unknown address does not create an account. The response contains `challengeId`,
 `email`, `resendAfterSeconds` and `expiresAt`.
 
 Verify: `POST /api/v1/auth/verify-otp` with
 `{"challengeId":"<id>","code":"<received code>"}`. Successful verification
 returns the existing access and refresh token response.
 
-Codes expire after five minutes, allow five failed attempts, and are consumed
-once. Resend is available after 60 seconds. Redis stores OTP hashes. SMTP delivery
-failures return an error and clear the challenge and cooldown; they do not sign
+Codes expire after five minutes and are consumed once. Resend is available after
+60 seconds and invalidates the previous challenge. Five wrong attempts across
+resends lock the address for 15 minutes. Sends are limited to five per hour and
+ten per day per address, with additional IP limits. Redis stores keyed OTP hashes
+and hashed address budget keys. A challenge cannot verify before delivery succeeds.
+SMTP failures clear that request's challenge and cooldown while retaining send
+accounting; they do not sign
 in the user or reveal the code. Acceptance by SMTP does not guarantee inbox
 placement, so test with a real recipient and check the spam folder.
 
@@ -68,8 +81,17 @@ verification clears their internal pending state; normal legacy account
 protections remain in place. Restoring phone sign-in also requires an appropriate
 verified phone and account-linking process for accounts created without a phone.
 
-For a new local development administrator, configure `SEED_ADMIN_EMAIL` before
-seeding. Seeding does not promote an existing ordinary account.
+For a new local development administrator, configure `SEED_ADMIN_EMAIL` with a
+real receiving address before seeding. Seeding does not promote an existing
+ordinary account. A sample address such as `admin@parkflow.local` cannot receive
+public email. Changing an existing administrator's sign-in identity requires an
+explicit, reviewed ownership/linking process; do not automatically move its role
+to the sending mailbox or merge it with another account.
+
+Verified primary login email is read-only in profile forms. Profile completion
+and identity details accept email verification without phone verification. Old
+development email sessions stop working when the bypass is disabled; pending
+development accounts can establish a real session by verifying their email.
 
 ## Testing
 

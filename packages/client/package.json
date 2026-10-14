@@ -115,6 +115,7 @@
     "./services/walletService": "./src/services/walletService.ts",
     "./store/appConfigStore": "./src/store/appConfigStore.ts",
     "./store/authStore": "./src/store/authStore.ts",
+    "./store/emailAuthStore": "./src/store/emailAuthStore.ts",
     "./store/evStationsStore": "./src/store/evStationsStore.ts",
     "./store/mapLayersStore": "./src/store/mapLayersStore.ts",
     "./store/phoneAuthStore": "./src/store/phoneAuthStore.ts",

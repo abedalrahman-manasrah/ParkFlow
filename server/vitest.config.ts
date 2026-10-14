@@ -8,5 +8,6 @@ process.env.DATABASE_URL=url;process.env.NODE_ENV='test';process.env.PAYMENT_PRO
 process.env.SMS_PROVIDER='disabled';
 process.env.DEV_SKIP_PHONE_OTP='false';
 process.env.DEV_SKIP_EMAIL_OTP='false';
+process.env.AUTH_LOGIN_METHOD='email';
 const redis=new URL(process.env.REDIS_URL!);redis.pathname='/15';process.env.REDIS_URL=redis.toString();
 export default defineConfig({test:{exclude:['dist/**','node_modules/**'],fileParallelism:false,testTimeout:30000,hookTimeout:60000,setupFiles:['./tests/setup.ts']}});

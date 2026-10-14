@@ -3,6 +3,7 @@ import { z } from 'zod';
 const optional = z.string().optional();
 export const env = z.object({
  NODE_ENV:z.enum(['development','test','production']).default('development'), PORT:z.coerce.number().default(4000),
+ AUTH_LOGIN_METHOD:z.enum(['email','phone']).default('email'),
  DEV_SKIP_EMAIL_OTP:z.enum(['true','false']).default('false').transform(v=>v==='true'),
  DEV_SKIP_PHONE_OTP:z.enum(['true','false']).default('false').transform(v=>v==='true'),
  SMS_PROVIDER:z.enum(['disabled','development','twilio','twilio-verify']).default('disabled'),

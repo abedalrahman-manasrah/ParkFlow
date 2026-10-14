@@ -13,6 +13,7 @@ const send=(body:object={phone,purpose:'register',fullName:'First User'})=>reque
 const verify=(challengeId:string,code:string)=>request(app).post('/api/v1/auth/phone/verify-otp').send({challengeId,code});
 const clearCooldown=()=>redis.del(prefix+'cooldown');
 beforeEach(async()=>{
+ Object.assign(env,{AUTH_LOGIN_METHOD:'phone'});
  const tables=await db.$queryRaw<{tablename:string}[]>`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
  await db.$executeRawUnsafe('TRUNCATE '+tables.map(t=>'"'+t.tablename.replace(/"/g,'""')+'"').join(',')+' CASCADE');
  await redis.flushdb();

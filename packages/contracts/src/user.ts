@@ -10,6 +10,7 @@ export interface User {
   /** The full ID is never returned by the server. */
   nationalIdMasked?: string | null;
   phoneVerifiedAt?: ISODateString | null;
+  emailVerifiedAt?: ISODateString | null;
   profileCompletedAt?: ISODateString | null;
   locale: 'en' | 'ar';
   /** Returned by the backend for authorization-aware navigation. */

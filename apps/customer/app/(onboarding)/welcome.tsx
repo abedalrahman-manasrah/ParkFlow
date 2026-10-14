@@ -6,6 +6,7 @@ import { useTheme } from '@parkflow/client/theme/ThemeProvider';
 import { spacing } from '@parkflow/design/spacing';
 import { useLocale } from '@parkflow/client/hooks/useLocale';
 import { usePhoneAuthStore } from '@parkflow/client/store/phoneAuthStore';
+import { useEmailAuthStore } from '@parkflow/client/store/emailAuthStore';
 import { useAppConfigStore } from '@parkflow/client/store/appConfigStore';
 
 export default function WelcomeScreen() {
@@ -13,7 +14,8 @@ export default function WelcomeScreen() {
   const { isDark } = useTheme();
   const { locale } = useLocale();
   const config = useAppConfigStore(state => state.config);
-  const start = (path: '/(onboarding)/name' | '/(onboarding)/phone') => {
+  const start = (path: '/(onboarding)/name' | '/(onboarding)/email') => {
+    useEmailAuthStore.getState().reset();
     usePhoneAuthStore.getState().begin(path === '/(onboarding)/name' ? 'register' : 'login');
     router.push(path);
   };

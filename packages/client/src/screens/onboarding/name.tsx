@@ -17,14 +17,14 @@ export default function NameScreen() {
   const next = () => {
     if (!valid) return;
     setName(fullName.trim());
-    router.push('/(onboarding)/phone');
+    router.push('/(onboarding)/email');
   };
   return (
     <Screen keyboardAvoiding>
       <AppHeader />
       <Reveal style={{ gap: spacing.sm }}>
         <AppText variant="h1">{t('onboarding.nameTitle')}</AppText>
-        <AppText variant="bodyLg" color="textSecondary">{t('onboarding.nameBeforePhone')}</AppText>
+        <AppText variant="bodyLg" color="textSecondary">{t('onboarding.nameBeforeEmail')}</AppText>
       </Reveal>
       <View style={{ marginTop: spacing.xxxl }}>
         <TextField label={t('onboarding.nameLabel')} emphasis="strong" value={fullName}

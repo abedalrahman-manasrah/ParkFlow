@@ -19,7 +19,7 @@ beforeEach(async () => {
   const tables = await db.$queryRaw<{tablename: string}[]>`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
   await db.$executeRawUnsafe('TRUNCATE ' + tables.map(t => '"' + t.tablename.replace(/"/g, '""') + '"').join(',') + ' CASCADE');
   await redis.flushdb();
-  Object.assign(env, {NODE_ENV: 'development', DEV_SKIP_EMAIL_OTP: true, DEV_SKIP_PHONE_OTP: true});
+  Object.assign(env, {AUTH_LOGIN_METHOD:'email', NODE_ENV: 'development', DEV_SKIP_EMAIL_OTP: true, DEV_SKIP_PHONE_OTP: true});
   vi.spyOn(emailProvider, 'sendOtp').mockRejectedValue(new Error('Email codes must not be sent'));
   vi.spyOn(smsProvider, 'sendOtp').mockRejectedValue(new Error('SMS must not be sent'));
   vi.spyOn(twilioVerifyProvider, 'start').mockRejectedValue(new Error('Twilio must not be contacted'));
@@ -27,15 +27,17 @@ beforeEach(async () => {
 afterEach(() => {Object.assign(env, originalEnv); vi.restoreAllMocks(); vi.unstubAllEnvs();});
 
 describe('temporary development email login', () => {
-  it('selects email before phone and pauses all code sending and phone shortcuts', async () => {
+  it('selects email independently and pauses email codes and phone shortcuts', async () => {
     const config = await request(app).get('/api/v1/auth/config');
     expect(config.body).toEqual({developmentLoginEnabled: false, developmentEmailLoginEnabled: true, loginMethod: 'email'});
     for (const [url, body] of [
-      ['/auth/phone/request-otp', {phone: '+970591234567', purpose: 'login'}],
       ['/auth/request-otp', {email}],
-      ['/auth/phone/verify-otp', {challengeId: '6f9b5d29-710e-4db8-a6e9-9df3663cd9e1', code: '123456'}],
       ['/auth/verify-otp', {challengeId: '6f9b5d29-710e-4db8-a6e9-9df3663cd9e1', code: '123456'}],
     ] as const) expect((await request(app).post('/api/v1' + url).send(body)).status).toBe(409);
+    for(const [url,body] of [
+      ['/auth/phone/request-otp', {phone: '+970591234567', purpose: 'login'}],
+      ['/auth/phone/verify-otp', {challengeId: '6f9b5d29-710e-4db8-a6e9-9df3663cd9e1', code: '123456'}],
+    ] as const) expect((await request(app).post('/api/v1'+url).send(body)).body.error.code).toBe('AUTH_METHOD_DISABLED');
     expect((await request(app).post('/api/v1/auth/phone/dev-login').send({phone: '+970591234567', purpose: 'register', fullName: 'Test'})).status).toBe(403);
     expect(emailProvider.sendOtp).not.toHaveBeenCalled(); expect(smsProvider.sendOtp).not.toHaveBeenCalled(); expect(twilioVerifyProvider.start).not.toHaveBeenCalled();
     expect(await redis.keys('otp:*')).toHaveLength(0);
@@ -130,7 +132,7 @@ describe('temporary development email login', () => {
       Object.assign(env, state);
       expect((await login()).status).toBe(403);
       const config = await request(app).get('/api/v1/auth/config');
-      expect(config.body.developmentEmailLoginEnabled).toBe(false); expect(config.body.loginMethod).toBe('phone');
+      expect(config.body.developmentEmailLoginEnabled).toBe(false); expect(config.body.loginMethod).toBe('email');
     }
     expect(await db.user.count()).toBe(0);
   });
@@ -155,8 +157,8 @@ describe('temporary development email login', () => {
     expect((await me(verified.body.session.accessToken)).status).toBe(200);
   });
 
-  it('keeps the remaining phone flow usable after both temporary switches are off', async () => {
-    Object.assign(env, {DEV_SKIP_EMAIL_OTP: false, DEV_SKIP_PHONE_OTP: false, NODE_ENV: 'test'});
+  it('keeps the phone flow usable when explicitly selected with both temporary switches off', async () => {
+    Object.assign(env, {AUTH_LOGIN_METHOD:'phone', DEV_SKIP_EMAIL_OTP: false, DEV_SKIP_PHONE_OTP: false, NODE_ENV: 'test'});
     const config = await request(app).get('/api/v1/auth/config');
     expect(config.body).toEqual({developmentLoginEnabled: false, developmentEmailLoginEnabled: false, loginMethod: 'phone'});
     let code = '';

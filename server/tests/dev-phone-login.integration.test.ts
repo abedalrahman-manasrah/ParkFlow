@@ -18,7 +18,7 @@ beforeEach(async () => {
   const tables = await db.$queryRaw<{tablename: string}[]>`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
   await db.$executeRawUnsafe('TRUNCATE ' + tables.map(t => '"' + t.tablename.replace(/"/g, '""') + '"').join(',') + ' CASCADE');
   await redis.flushdb();
-  Object.assign(env, {NODE_ENV: 'development', DEV_SKIP_PHONE_OTP: true, DEV_SKIP_EMAIL_OTP: false});
+  Object.assign(env, {AUTH_LOGIN_METHOD:'phone', NODE_ENV: 'development', DEV_SKIP_PHONE_OTP: true, DEV_SKIP_EMAIL_OTP: false});
   vi.spyOn(smsProvider, 'sendOtp').mockRejectedValue(new Error('SMS must not be contacted'));
   vi.spyOn(twilioVerifyProvider, 'start').mockRejectedValue(new Error('Twilio must not be contacted'));
 });
@@ -107,10 +107,10 @@ describe('temporary development phone login', () => {
     expect(await redis.keys('otp:phone:*')).toHaveLength(0);
   });
 
-  it('also prevents retired email screens from requesting codes while paused', async () => {
+  it('rejects email code requests while phone is selected', async () => {
     const result = await request(app).post('/api/v1/auth/request-otp').send({email: 'tester@example.com'});
-    expect(result.status).toBe(409);
-    expect(result.body.error.code).toBe('OTP_TEMPORARILY_DISABLED');
+    expect(result.status).toBe(403);
+    expect(result.body.error.code).toBe('AUTH_METHOD_DISABLED');
     expect(await redis.keys('otp:email:*')).toHaveLength(0);
   });
 

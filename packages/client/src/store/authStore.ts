@@ -14,7 +14,7 @@ interface AuthState {
   hydrated: boolean;
 
   hydrate: () => Promise<void>;
-  signIn: (session: AuthSession, user: User) => Promise<void>;
+  signIn: (session: AuthSession, user: User, shouldApply?: () => boolean) => Promise<void>;
   setUser: (user: User) => void;
   signOut: () => Promise<void>;
 }
@@ -22,6 +22,19 @@ interface AuthState {
 interface PersistedAuth {
   session: AuthSession;
   user: User;
+}
+
+let authenticationEpoch = 0;
+let persistenceTail: Promise<unknown> = Promise.resolve();
+function persistInOrder<T>(operation: () => Promise<T>): Promise<T> {
+  const pending = persistenceTail.then(operation, operation);
+  persistenceTail = pending.catch(() => undefined);
+  return pending;
+}
+function cancelledVerification() {
+  const error = new Error('Authentication changed while verification was completing');
+  error.name = 'AbortError';
+  return error;
 }
 
 export const useAuthStore = create<AuthState>()((set) => ({
@@ -57,27 +70,50 @@ export const useAuthStore = create<AuthState>()((set) => ({
     }
   },
 
-  signIn: async (session, user) => {
-    await secureStorage.setItem(STORAGE_KEYS.authSession, JSON.stringify({ session, user }));
-    set({ session, user });
+  signIn: async (session, user, shouldApply) => {
+    if (shouldApply?.() === false) throw cancelledVerification();
+    const epoch = ++authenticationEpoch;
+    const current = () => epoch === authenticationEpoch && shouldApply?.() !== false;
+    await persistInOrder(async () => {
+      if (!current()) throw cancelledVerification();
+      await secureStorage.setItem(STORAGE_KEYS.authSession, JSON.stringify({ session, user }));
+      if (!current()) {
+        // No later auth write can run until this restoration completes.
+        const state = useAuthStore.getState();
+        if (state.session && state.user) {
+          await secureStorage.setItem(STORAGE_KEYS.authSession, JSON.stringify({ session: state.session, user: state.user }));
+        } else {
+          await secureStorage.removeItem(STORAGE_KEYS.authSession);
+        }
+        throw cancelledVerification();
+      }
+      set({ session, user });
+    });
   },
 
   setUser: (user) => {
+    const session = useAuthStore.getState().session;
+    if (session && session.userId !== user.id) return;
     set({ user });
-    const { session } = useAuthStore.getState();
     if (session) {
-      void secureStorage.setItem(STORAGE_KEYS.authSession, JSON.stringify({ session, user }));
+      void persistInOrder(async () => {
+        const state = useAuthStore.getState();
+        if (state.session && state.user) await secureStorage.setItem(STORAGE_KEYS.authSession, JSON.stringify({ session: state.session, user: state.user }));
+      }).catch(() => undefined);
     }
   },
 
   signOut: async () => {
+    ++authenticationEpoch;
     const previousUserId = useAuthStore.getState().user?.id;
-    if (previousUserId) {
-      const { retryQueue } = await import('../offline/retryQueue');
-      await retryQueue.clearUser(previousUserId);
-    }
-    await secureStorage.removeItem(STORAGE_KEYS.authSession);
-    set({ session: undefined, user: undefined });
+    await persistInOrder(async () => {
+      if (previousUserId) {
+        const { retryQueue } = await import('../offline/retryQueue');
+        await retryQueue.clearUser(previousUserId);
+      }
+      await secureStorage.removeItem(STORAGE_KEYS.authSession);
+      set({ session: undefined, user: undefined });
+    });
   },
 }));
 

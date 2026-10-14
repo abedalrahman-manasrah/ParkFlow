@@ -20,7 +20,7 @@ beforeEach(async () => {
   const tables = await db.$queryRaw<{tablename:string}[]>`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
   await db.$executeRawUnsafe('TRUNCATE '+tables.map(t=>'"'+t.tablename.replace(/"/g,'""')+'"').join(',')+' CASCADE');
   await redis.flushdb();
-  Object.assign(env, {SMS_PROVIDER:'twilio-verify', TWILIO_ACCOUNT_SID:account, TWILIO_AUTH_TOKEN:'fixture-token', TWILIO_VERIFY_SERVICE_SID:service});
+  Object.assign(env, {AUTH_LOGIN_METHOD:'phone', SMS_PROVIDER:'twilio-verify', TWILIO_ACCOUNT_SID:account, TWILIO_AUTH_TOKEN:'fixture-token', TWILIO_VERIFY_SERVICE_SID:service});
   checkCount = 0;
   checkResponse = () => response('approved');
   vi.stubGlobal('fetch', async (url:string, init:RequestInit) => {

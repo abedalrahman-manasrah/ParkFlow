@@ -1,17 +1,20 @@
-# Phone registration and sign-in
+# Optional legacy phone registration and sign-in
 
 Registration: name -> Palestinian mobile (+970) -> six-digit code -> optional contact email/national ID -> vehicle. Returning users enter the phone and code without a password. New accounts are created only after successful verification. An unfinished account resumes its details step on another device.
 
-## الوضع الحالي: دخول البريد مؤقتاً للتطوير والفحص
+## الوضع الحالي: الدخول بالبريد ورمز تحقق
 
 بعد فصل الواجهات: تطبيق المستخدمين على `http://localhost:8081`، وبوابة الأدمن وأصحاب المواقف على `http://localhost:8082`. الدخول بحساب الأدمن في تطبيق المستخدمين يفتح الخريطة؛ إدارة المنصة تكون من بوابة الإدارة. لكل واجهة جلسة مستقلة، مع نفس الحسابات والخادم وقاعدة البيانات. تشغيلهما من جذر المستودع: `npm run dev:customer` و`npm run dev:management` في طرفيتين منفصلتين.
 
-الهاتف والرموز معلّقان الآن في نسخة التطوير. ضع في `server/.env`:
+الدخول والتسجيل الآن عبر البريد ورمز يصله بالبريد. الهاتف موقوف في هذا الوضع.
+اضبط SMTP وفق [دليل البريد](EMAIL_OTP.md)، وضع في `server/.env`:
 
 ```dotenv
 NODE_ENV=development
-DEV_SKIP_EMAIL_OTP=true
+AUTH_LOGIN_METHOD=email
+DEV_SKIP_EMAIL_OTP=false
 DEV_SKIP_PHONE_OTP=false
+SMS_PROVIDER=disabled
 ```
 
 من مجلد `server`، أعد تشغيل الخادم والمهام الخلفية بعد بناء الكود المحدّث:
@@ -20,11 +23,19 @@ DEV_SKIP_PHONE_OTP=false
 docker compose up -d --force-recreate backend worker
 ```
 
-افتح `/email` أو اختر «تسجيل الدخول» من الترحيب. أدخل بريد الحساب ثم «متابعة»، دون كلمة مرور أو رمز. التسجيل الجديد يبدأ بالاسم ثم البريد وإكمال البيانات والمركبة. يحتفظ الحساب الموجود باسمه وصلاحياته وبياناته؛ ولا تُمنح صلاحيات أدمن أو مالك لمجرد تسجيل بريد جديد. يعمل حساب الأدمن الموجود `admin@parkflow.local` بهذا المسار. يُنشأ الحساب الجديد كمستخدم عادي، ويبقى البريد غير موثّق حتى تحقق حقيقي.
+افتح `/email` أو اختر «تسجيل الدخول». أدخل بريد الحساب ثم الرمز الذي يصله.
+التسجيل الجديد يبدأ بالاسم ثم البريد والرمز وإكمال البيانات والمركبة.
+يحتفظ الحساب الموجود بصلاحياته وبياناته؛ التسجيل لا يمنح صلاحية أدمن أو مالك.
+الحساب التجريبي `admin@parkflow.local` لا يستقبل بريدًا عامًا؛ يحتاج حساب الأدمن
+إلى بريد حقيقي موثّق وملكية مراجَعة. لا يُنشأ حساب المستخدم قبل الرمز الصحيح.
 
-يتحكم الخادم بالمسار، والبريد له الأولوية إذا فُعّل الخياران معاً. طرق الهاتف والإرسال والفحص القديمة تتوقف أثناء وضع البريد؛ تبقى بيانات المزود والرموز وحدودها محفوظة. هذا الدخول مخصص لنسخة تطوير موثوقة، إذ يكفي معرفة البريد للدخول.
+يتحكم `AUTH_LOGIN_METHOD` بالمسار. طرق إرسال وفحص SMS تتوقف في وضع البريد،
+وتبقى شفرتها وحدودها محفوظة. كِلا اختصاري التطوير موقوفان في الإعداد العادي.
+جلسات البريد القديمة التي لم تستخدم رمزًا تُرفض بعد إيقاف اختصار التطوير.
 
-لإعادة الهاتف والرموز، اضبط الخيارين `DEV_SKIP_EMAIL_OTP=false` و`DEV_SKIP_PHONE_OTP=false` وأعد التشغيل بالأمر نفسه. تعود شاشة الهاتف ويُرفض استخدام جلسات البريد المؤقتة، حتى بعد تجديدها. تبقى الحسابات والبيانات الموجودة محفوظة؛ الحساب التجريبي الجديد بلا هاتف يحتاج ربطاً وتحققاً من هويته قبل استعماله في التشغيل الفعلي. لا يُسمح بتفعيل أي من هذين الخيارين في بيئة الإنتاج. لا يلزم تغيير متغيرات الواجهة العامة.
+الخطوات التالية توثّق مسار الهاتف القديم، ولا تفعّله بمجرد إضافة بيانات Twilio.
+تشغيله لاحقًا يحتاج `AUTH_LOGIN_METHOD=phone` وضبط مزوده وإعادة التشغيل.
+الحساب الذي أُنشئ بالبريد يحتاج عملية ربط هاتف موثّقة قبل استخدام مسار الهاتف.
 
 ## إيقاف الرموز مؤقتاً أثناء تطوير التطبيق
 
@@ -32,6 +43,7 @@ docker compose up -d --force-recreate backend worker
 
 ```dotenv
 NODE_ENV=development
+AUTH_LOGIN_METHOD=phone
 DEV_SKIP_PHONE_OTP=true
 ```
 
@@ -49,7 +61,10 @@ docker compose up -d --force-recreate backend worker
 
 For terminal-only development, use `SMS_PROVIDER=development`. Codes are printed in the **server terminal only**, labelled `ParkFlow development SMS`; nothing is sent to a phone. With Docker, read the newest line using `docker compose logs --tail 30 backend` from `server`. Enter its six-digit code on the verification screen. There is no universal code, and limits still apply. The app shows a development-delivery notice. With `twilio-verify`, obtain the code from the SMS instead; it is never printed locally.
 
-`DEV_SKIP_EMAIL_OTP=true` selects the temporary email flow described above. Keep it false for terminal-code development or real phone verification. Production rejects development delivery and development login.
+For terminal-code development or real phone verification, explicitly select
+`AUTH_LOGIN_METHOD=phone` and keep both shortcut flags false. Email shortcuts
+apply only to `AUTH_LOGIN_METHOD=email`. Production rejects development delivery
+and development login.
 
 ## تفعيل رسائل حقيقية عبر تجربة Twilio Verify المجانية
 

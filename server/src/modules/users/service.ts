@@ -3,6 +3,7 @@ import { db, atomic, lock } from '../../database/client';
 import { assert, requireValue } from '../../utils/errors';
 import { encryptNationalId } from './identity';
 import { developmentPhoneLoginEnabled, developmentEmailLoginEnabled } from '../../config/developmentAuth';
+import { env } from '../../config/env';
 
 export function userView(user: User) {
   const { nationalIdEncrypted: _encrypted, phoneVerificationPending: _pending, emailVerificationPending: _emailPending, nationalIdLast4, ...publicFields } = user;
@@ -17,11 +18,11 @@ async function saveProfile(id: string, input: ProfileInput, complete: boolean) {
   return atomic(async tx => {
     await lock(tx, `profile:${id}`);
     const existing = requireValue(await tx.user.findUnique({where:{id}}));
-    const canEditPhoneProfile = existing.phoneVerifiedAt || (developmentPhoneLoginEnabled() && existing.phoneVerificationPending) || (developmentEmailLoginEnabled() && Boolean(existing.email));
-    if (complete) assert(canEditPhoneProfile, 'PHONE_VERIFICATION_REQUIRED', 'Verify your phone before completing your profile', 403);
+    const canEditProfile = existing.emailVerifiedAt || existing.phoneVerifiedAt || (developmentPhoneLoginEnabled() && existing.phoneVerificationPending) || (developmentEmailLoginEnabled() && Boolean(existing.email));
+    if (complete) assert(canEditProfile, 'CONTACT_VERIFICATION_REQUIRED', 'Verify your sign-in address before completing your profile', 403);
     if (complete) assert((input.fullName ?? existing.fullName).trim(), 'NAME_REQUIRED', 'Add your name before completing your profile', 400);
     if (input.email !== undefined || input.nationalId !== undefined) {
-      assert(canEditPhoneProfile, 'VALIDATION', 'Verify your phone before changing contact or identity details');
+      assert(canEditProfile, 'VALIDATION', 'Verify your sign-in address before changing contact or identity details');
     }
     const data: Prisma.UserUpdateInput = {};
     if (input.fullName !== undefined) {
@@ -31,6 +32,7 @@ async function saveProfile(id: string, input: ProfileInput, complete: boolean) {
     }
     if (input.locale !== undefined) data.locale = input.locale;
     if (input.email !== undefined && input.email !== existing.email) {
+      assert(!existing.emailVerifiedAt || env.AUTH_LOGIN_METHOD !== 'email', 'EMAIL_CHANGE_REQUIRES_VERIFICATION', 'Changing your verified sign-in email requires a new verification. Keep your current email for now.', 409);
       assert(existing.phone || input.email, 'EMAIL_REQUIRED', 'Keep an email address for this development account', 400);
       if (input.email) {
         const owner = await tx.user.findUnique({where:{email:input.email},select:{id:true}});

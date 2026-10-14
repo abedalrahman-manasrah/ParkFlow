@@ -16,7 +16,7 @@ function ConfigImage({ url, alt, logo = false }: { url: string; alt: string; log
 }
 
 /** The same bounded block renderer is used by the live welcome and local editor preview. */
-export function ConfiguredWelcome({ config, locale, onAction }: { config: AppConfig; locale: Locale; onAction?: (path: '/(onboarding)/name' | '/(onboarding)/phone') => void }) {
+export function ConfiguredWelcome({ config, locale, onAction }: { config: AppConfig; locale: Locale; onAction?: (path: '/(onboarding)/name' | '/(onboarding)/email') => void }) {
   const { colors } = useTheme();
   const direction = locale === 'ar' ? 'rtl' : 'ltr';
   return <View style={{ gap: spacing.xl, width: '100%', maxWidth: 580, alignSelf: 'center' }}>
@@ -30,13 +30,13 @@ export function ConfiguredWelcome({ config, locale, onAction }: { config: AppCon
     <View style={{ gap: spacing.md }}>
       {config.sections.filter(section => section.visible).map(section => {
         if (section.type === 'image') return <ConfigImage key={section.id} url={section.url} alt={section.alt[locale]} />;
-        if (section.type === 'action') return <AppButton key={section.id} label={section.label[locale]} variant="secondary" onPress={onAction ? () => onAction(section.path) : undefined} />;
+        if (section.type === 'action') return <AppButton key={section.id} label={section.label[locale]} variant="secondary" onPress={onAction ? () => onAction(section.path === '/(onboarding)/phone' ? '/(onboarding)/email' : section.path) : undefined} />;
         return <View key={section.id} style={{ padding: spacing.lg, backgroundColor: colors.surface, borderRadius: radius.lg }}><AppText variant={section.type === 'title' ? 'title' : 'body'} style={{ textAlign: locale === 'ar' ? 'right' : 'left', writingDirection: direction }}>{section.text[locale]}</AppText></View>;
       })}
     </View>
     <View style={{ gap: spacing.md }}>
       <AppButton label={translate(locale, 'onboarding.getStarted')} onPress={onAction ? () => onAction('/(onboarding)/name') : undefined} testID="welcome-get-started" />
-      <AppButton label={translate(locale, 'onboarding.login')} variant="ghost" onPress={onAction ? () => onAction('/(onboarding)/phone') : undefined} />
+      <AppButton label={translate(locale, 'onboarding.login')} variant="ghost" onPress={onAction ? () => onAction('/(onboarding)/email') : undefined} />
     </View>
   </View>;
 }

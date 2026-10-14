@@ -5,7 +5,7 @@ import { redis } from '../../database/redis';
 import { smsProvider } from '../../providers/sms';
 import { twilioVerifyProvider } from '../../providers/twilioVerify';
 import { env } from '../../config/env';
-import { developmentPhoneLoginEnabled, requireOtpEnabled } from '../../config/developmentAuth';
+import { developmentPhoneLoginEnabled, requireAuthMethod, requireOtpEnabled } from '../../config/developmentAuth';
 import { ApiError, assert } from '../../utils/errors';
 import { userView } from '../users/service';
 import { digest, issue } from './service';
@@ -37,6 +37,7 @@ export const phoneRequestSchema = z.object({
 export const phoneVerifySchema = z.object({challengeId: z.uuid(), code: z.string().regex(/^\d{6}$/)}).strict();
 
 export async function devPhoneLogin(input: z.input<typeof phoneRequestSchema>, meta: {device?: string; ip?: string}) {
+  requireAuthMethod('phone');
   assert(developmentPhoneLoginEnabled(), 'DEV_LOGIN_DISABLED', 'Development login is disabled', 403);
   const parsed = phoneRequestSchema.parse(input);
   const phone = normalizePhone(parsed.phone);
@@ -84,6 +85,7 @@ return {'OK', 60}
 `;
 
 export async function requestPhoneOtp(input: z.input<typeof phoneRequestSchema>) {
+  requireAuthMethod('phone');
   requireOtpEnabled();
   const parsed = phoneRequestSchema.parse(input);
   const phone = normalizePhone(parsed.phone), prefix = phonePrefix(phone);
@@ -150,6 +152,7 @@ return {'OK', phone, purpose, fullName}
 `;
 
 export async function verifyPhoneOtp(input: z.input<typeof phoneVerifySchema>, meta: {device?: string; ip?: string}) {
+  requireAuthMethod('phone');
   requireOtpEnabled();
   const parsed = phoneVerifySchema.parse(input);
   const [storedPhone, provider] = await redis.hmget(challengeKey(parsed.challengeId), 'phone', 'provider');

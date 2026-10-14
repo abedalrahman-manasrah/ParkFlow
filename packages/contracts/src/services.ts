@@ -54,18 +54,23 @@ export interface AuthConfig {
   loginMethod: 'email' | 'phone';
 }
 
+/** Client-only guard: an abandoned verification must not apply its session. */
+export interface AuthVerificationOptions {
+  shouldApply?: () => boolean;
+}
+
 export interface AuthService {
   getConfig(): Promise<AuthConfig>;
   devPhoneLogin(input: { phone: string; purpose: 'register' | 'login'; fullName?: string }): Promise<AuthResult>;
   requestPhoneOtp(input: { phone: string; purpose: 'register' | 'login'; fullName?: string }): Promise<PhoneOtpChallenge>;
   verifyPhoneOtp(input: { challengeId: string; code: string }): Promise<AuthResult>;
   completePhoneProfile(input: { email?: string | null; nationalId?: string | null; fullName?: string }): Promise<User>;
-  requestOtp(input: { email: string }): Promise<OtpChallenge>;
+  requestOtp(input: { email: string; purpose?: 'register' | 'login'; fullName?: string }): Promise<OtpChallenge>;
   devLogin(input: { email: string; purpose?: 'register' | 'login'; fullName?: string }): Promise<AuthResult>;
   verifyOtp(input: {
     challengeId: string;
     code: string;
-  }): Promise<AuthResult>;
+  }, options?: AuthVerificationOptions): Promise<AuthResult>;
   completeProfile(input: { userId: string; fullName: string }): Promise<User>;
   refresh(refreshToken: string): Promise<AuthSession>;
   signOut(): Promise<void>;

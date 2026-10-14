@@ -5,6 +5,7 @@ import { AppButton, AppText, Card, Screen } from '@parkflow/client/components/ui
 import { useLocale } from '@parkflow/client/hooks/useLocale';
 import { useAuthStore } from '@parkflow/client/store/authStore';
 import { usePhoneAuthStore } from '@parkflow/client/store/phoneAuthStore';
+import { useEmailAuthStore } from '@parkflow/client/store/emailAuthStore';
 import { useTheme } from '@parkflow/client/theme/ThemeProvider';
 import { authLanding } from '@parkflow/client/utils/authFlow';
 import { spacing } from '@parkflow/design/spacing';
@@ -30,7 +31,7 @@ export default function ManagementWelcome() {
       </View>
       <AppButton
         label={text('Staff sign in', 'دخول الموظفين')}
-        onPress={() => { begin('login'); router.push('/(onboarding)/phone'); }}
+        onPress={() => { useEmailAuthStore.getState().reset(); begin('login'); router.push('/(onboarding)/email'); }}
         testID="management-sign-in"
       />
       <AppText variant="bodySm" color="textSecondary">

@@ -73,7 +73,9 @@ Completed accounts using the customer app land on the map. Management accepts
 administrator and parking operator accounts; ordinary accounts receive an access
 screen without mounting staff data queries. Assigned staff with incomplete
 profiles can complete their details inside the portal. Staff welcome offers
-sign-in only and follows the backend's configured email or phone login method.
+sign-in only and follows the backend's configured login method. The normal method
+is email with an emailed code for all roles; phone endpoints are disabled in email
+mode. See [email setup](../../EMAIL_OTP.md) for SMTP and verification limits.
 
 Portal sign-out revokes its current session, clears its query cache and returns to
 its own welcome screen. It does not call logout-all. Existing account revocation

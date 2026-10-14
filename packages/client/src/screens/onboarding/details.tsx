@@ -28,7 +28,8 @@ export default function ProfileDetailsScreen() {
   const [email, setEmail] = useState(user?.email ?? '');
   const [nationalId, setNationalId] = useState('');
   const normalizedEmail = email.trim().toLowerCase();
-  const developmentEmailAccount = !!user?.email && !user.phone;
+  const emailAccount = !!user?.email && (!user.phone || !!user.emailVerifiedAt);
+  const verifiedEmailAccount = emailAccount && !!user?.emailVerifiedAt;
   const normalizedName = fullName.trim();
   const nameValid = !needsName || (normalizedName.length >= 2 && normalizedName.length <= 60);
   const emailValid = !normalizedEmail || z.email().max(254).safeParse(normalizedEmail).success;
@@ -53,21 +54,21 @@ export default function ProfileDetailsScreen() {
       <View style={{ height: spacing.giant }} />
       <Reveal style={{ gap: spacing.sm }}>
         <AppText variant="h1">{t('onboarding.detailsTitle')}</AppText>
-        <AppText variant="bodyLg" color="textSecondary">{t(developmentEmailAccount ? 'onboarding.detailsDevelopmentEmailSubtitle' : user?.phoneVerifiedAt ? 'onboarding.detailsSubtitle' : 'onboarding.detailsDevelopmentSubtitle')}</AppText>
+        <AppText variant="bodyLg" color="textSecondary">{t(verifiedEmailAccount ? 'onboarding.detailsEmailSubtitle' : emailAccount ? 'onboarding.detailsDevelopmentEmailSubtitle' : user?.phoneVerifiedAt ? 'onboarding.detailsSubtitle' : 'onboarding.detailsDevelopmentSubtitle')}</AppText>
       </Reveal>
       <View style={{ marginTop: spacing.xxxl, gap: spacing.lg }}>
         {needsName ? <TextField label={t('onboarding.nameLabel')} value={fullName} onChangeText={setFullName}
           onBlur={() => setNameTouched(true)} autoCapitalize="words" autoComplete="name" textContentType="name"
           autoFocus maxLength={60} returnKeyType="done" editable={!save.isPending} onSubmitEditing={submit}
           error={nameTouched && !nameValid ? t('onboarding.nameInvalid') : undefined} testID="profile-name" /> : null}
-        <TextField label={developmentEmailAccount ? t('profile.email') : `${t('profile.email')} (${t('common.optional')})`}
-          value={email} onChangeText={setEmail} editable={!developmentEmailAccount}
+        <TextField label={emailAccount ? t('profile.email') : `${t('profile.email')} (${t('common.optional')})`}
+          value={email} onChangeText={setEmail} editable={!emailAccount}
           keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" textContentType="emailAddress"
           placeholder="you@example.com" maxLength={254} error={!emailValid ? t('onboarding.emailInvalid') : undefined} testID="profile-email" />
         <TextField label={`${t('profile.nationalId')} (${t('common.optional')})`} value={nationalId}
           onChangeText={(value) => setNationalId(asciiDigits(value).replace(/\D/g, ''))} keyboardType="number-pad"
           maxLength={9} autoComplete="off" autoCorrect={false} error={!idValid ? t('profile.nationalIdInvalid') : undefined} testID="profile-national-id" />
-        <AppText variant="bodySm" color="textSecondary">{t(developmentEmailAccount ? 'onboarding.detailsDevelopmentEmailPrivacy' : 'onboarding.detailsPrivacy')}</AppText>
+        <AppText variant="bodySm" color="textSecondary">{t(verifiedEmailAccount ? 'onboarding.detailsEmailPrivacy' : emailAccount ? 'onboarding.detailsDevelopmentEmailPrivacy' : 'onboarding.detailsPrivacy')}</AppText>
         {save.isError ? <InlineNotice tone="danger" title={t('common.somethingWrong')} body={errorMessage(save.error)} /> : null}
       </View>
       <View style={{ flex: 1, minHeight: spacing.xl }} />
