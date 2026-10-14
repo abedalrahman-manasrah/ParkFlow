@@ -14,6 +14,8 @@ export const env = z.object({
  JWT_ACCESS_SECRET:z.string().min(32), JWT_REFRESH_SECRET:z.string().min(32),
  ACCESS_TOKEN_TTL:z.coerce.number().int().positive().default(900), REFRESH_TOKEN_TTL:z.coerce.number().int().positive().default(2592000),
  CORS_ORIGINS:z.string().default('http://localhost:8081,http://127.0.0.1:8081'), OSRM_BASE_URL:z.string().url().default('https://router.project-osrm.org'),
+ WEB_CUSTOMER_ORIGINS:z.string().default('http://localhost:8081,http://127.0.0.1:8081,http://localhost:19006,http://127.0.0.1:19006'),
+ WEB_MANAGEMENT_ORIGINS:z.string().default('http://localhost:8082,http://127.0.0.1:8082'),
  EMAIL_PROVIDER:z.enum(['smtp']).default('smtp'), EMAIL_FROM:z.email(),
  SMTP_HOST:z.string().min(1), SMTP_PORT:z.coerce.number().int().positive().default(465),
  SMTP_SECURE:z.enum(['true','false']).default('true').transform(v=>v==='true'), SMTP_USER:z.string().min(1), SMTP_PASSWORD:optional,
@@ -39,4 +41,13 @@ if(env.NODE_ENV==='production') {
  if([env.JWT_ACCESS_SECRET,env.JWT_REFRESH_SECRET,env.PAYMENT_WEBHOOK_SECRET].some(s=>s.startsWith('replace-'))) throw new Error('Replace example secrets');
  if(!env.PAYMENT_API_URL?.startsWith('https://')) throw new Error('Provider URLs must use HTTPS');
 }
-export const origins = env.CORS_ORIGINS.split(',').map(s=>s.trim());
+export type WebApplication = 'customer' | 'management';
+function browserOrigins(value:string):readonly string[]{
+ const entries=value.split(',').map(s=>s.trim()).filter(Boolean);
+ if(!entries.length||entries.some(value=>{try{const url=new URL(value);return url.origin!==value||!['http:','https:'].includes(url.protocol);}catch{return true;}}))throw new Error('Web origins must be exact HTTP(S) origins');
+ if(env.NODE_ENV==='production'&&entries.some(value=>!value.startsWith('https://')))throw new Error('Production web origins must use HTTPS');
+ return entries;
+}
+export const webOrigins:Record<WebApplication,readonly string[]>={customer:browserOrigins(env.WEB_CUSTOMER_ORIGINS),management:browserOrigins(env.WEB_MANAGEMENT_ORIGINS)};
+if(webOrigins.customer.some(origin=>webOrigins.management.includes(origin)))throw new Error('Customer and management web origins must be disjoint');
+export const origins = [...new Set([...env.CORS_ORIGINS.split(',').map(s=>s.trim()).filter(Boolean), ...webOrigins.customer, ...webOrigins.management])];

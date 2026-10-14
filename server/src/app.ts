@@ -15,7 +15,7 @@ import { errors } from './middleware/errors';
 import { ApiError } from './utils/errors';
 import { webhook } from './modules/wallet/service';
 export function createApp(){const app=express();app.disable('x-powered-by');
- app.use(helmet());app.use(cors({origin:(origin,cb)=>{if(!origin||origins.includes(origin))cb(null,true);else cb(new ApiError(403,'CORS_FORBIDDEN','Origin is not allowed'));},allowedHeaders:['Content-Type','Authorization','Idempotency-Key','X-Request-Id']}));
+ app.use(helmet());app.use(cors({origin:(origin,cb)=>{if(!origin||origins.includes(origin))cb(null,true);else cb(new ApiError(403,'CORS_FORBIDDEN','Origin is not allowed'));},credentials:true,allowedHeaders:['Content-Type','Authorization','Idempotency-Key','X-Request-Id','X-ParkFlow-App','X-ParkFlow-Session','X-ParkFlow-Login','X-ParkFlow-CSRF']}));
  app.use(pinoHttp({logger,genReqId:()=>randomUUID(),customProps:req=>({requestId:req.id}),autoLogging:env.NODE_ENV!=='test'}));
  app.use((req,res,next)=>{res.setHeader('X-Request-Id',String(req.id));res.setHeader('Cache-Control','no-store');next();});
  app.get('/health',(_req,res)=>res.json({status:'ok'}));app.get('/ready',async(_req,res)=>{try{await db.$queryRaw`SELECT 1`;await redis.ping();res.json({status:'ready'});}catch{res.status(503).json({status:'unavailable'});}});

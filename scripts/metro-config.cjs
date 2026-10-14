@@ -1,4 +1,5 @@
 const path = require('node:path');
+require('./apply-frontend-security-patches.cjs').run({ verifyOnly: true });
 const { getDefaultConfig } = require('expo/metro-config');
 
 module.exports = function createFrontendMetroConfig(projectRoot) {

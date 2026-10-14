@@ -51,7 +51,7 @@ export default function EmailOtpScreen() {
       // Publishing auth may already have unmounted this screen. Finish cleanup
       // in the operation itself while preserving any newer login or challenge.
       if (authenticated.user?.id === result.user.id
-        && authenticated.session?.accessToken === result.session.accessToken
+        && authenticated.session === result.session
         && emailState.challenge?.challengeId === submission.challengeId) {
         emailState.clearChallenge();
         usePhoneAuthStore.getState().clearChallenge();

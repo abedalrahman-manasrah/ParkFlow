@@ -14,9 +14,9 @@ async function scenario(run) {
   const values = new Map();
   const storage = { getItem: async key => values.get(key) ?? null, setItem: async (key, value) => { values.set(key, value); }, removeItem: async key => { values.delete(key); } };
   const load = createClientLoader({ stubs: {
-    'react-native': { Platform: { OS: 'web' } },
+    'react-native': { Platform: { OS: 'android' } },
     '@react-native-async-storage/async-storage': storage,
-    'expo-secure-store': {},
+    'expo-secure-store': { getItemAsync: storage.getItem, setItemAsync: storage.setItem, deleteItemAsync: storage.removeItem },
   } });
   const store = load('@parkflow/client/store/authStore').useAuthStore;
   const { refreshSession } = load('@parkflow/client/services/http/apiClient');
@@ -27,7 +27,7 @@ async function scenario(run) {
     return new Promise(resolve => pending.push({ token: JSON.parse(options.body).refreshToken, resolve }));
   };
   try { await run({ store, refreshSession, pending, reload: () => {
-    const next = createClientLoader({ stubs: { 'react-native': { Platform: { OS: 'web' } }, '@react-native-async-storage/async-storage': storage, 'expo-secure-store': {} } });
+    const next = createClientLoader({ stubs: { 'react-native': { Platform: { OS: 'android' } }, '@react-native-async-storage/async-storage': storage, 'expo-secure-store': { getItemAsync: storage.getItem, setItemAsync: storage.setItem, deleteItemAsync: storage.removeItem } } });
     return next('@parkflow/client/store/authStore').useAuthStore;
   } }); }
   finally {

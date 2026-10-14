@@ -8,9 +8,8 @@ import { clientApplication } from '../runtime/application';
  *  - `secureStorage` for tokens and session data (Keychain / Keystore).
  *  - `appStorage`    for non-sensitive cached preferences.
  *
- * SecureStore has no web implementation, so the web build transparently falls
- * back to AsyncStorage. That is fine for the browser preview and keeps the
- * native builds — the ones that ship — properly secured.
+ * Browser login credentials are HttpOnly cookies; authStore never writes them
+ * here. Browser storage keeps only non-secret login fences and request keys.
  */
 export interface KeyValueStorage {
   getItem(key: string): Promise<string | null>;
@@ -25,6 +24,7 @@ const rawAppStorage: KeyValueStorage = {
 };
 
 const secureAvailable = Platform.OS === 'ios' || Platform.OS === 'android';
+export const browserSessionsEnabled = Platform.OS === 'web';
 
 const rawSecureStorage: KeyValueStorage = secureAvailable
   ? {
@@ -50,6 +50,8 @@ export const secureStorage = scopedStorage(rawSecureStorage);
 
 export const STORAGE_KEYS = {
   authSession: 'sp.auth.session',
+  webBinding: 'pf.web.login-binding',
+  webLogoutFence: 'pf.web.logout-pending',
   preferences: 'sp.preferences',
   mapLayers: 'sp.map.layers',
   mockDb: 'sp.mock.db',

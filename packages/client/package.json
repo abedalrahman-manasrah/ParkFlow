@@ -76,6 +76,7 @@
     "./services/http/apiClient": "./src/services/http/apiClient.ts",
     "./services/http/appConfigService": "./src/services/http/appConfigService.ts",
     "./services/http/authService": "./src/services/http/authService.ts",
+    "./services/http/browserSession": "./src/services/http/browserSession.ts",
     "./services/http/evStationService": "./src/services/http/evStationService.ts",
     "./services/http/managementService": "./src/services/http/managementService.ts",
     "./services/http/notificationService": "./src/services/http/notificationService.ts",

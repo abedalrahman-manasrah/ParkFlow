@@ -1,12 +1,24 @@
-import type { AuthSession } from '@parkflow/contracts';
+import type { AuthSession, User, WebAuthSession } from '@parkflow/contracts';
 import { useAuthStore,withAuthenticationPersistence } from '../../store/authStore';
 import { AppError,type AppErrorCode } from '../../utils/errors';
 import { secureStorage } from '../storage';
 import { runtimeApiBaseUrl } from '../../runtime/application';
-export const API_BASE_URL=(runtimeApiBaseUrl??process.env.EXPO_PUBLIC_API_BASE_URL)?.replace(/\/$/,'');
+import { bindingOf, bootstrapBrowserSession, isWebSession, sameBrowserLogin, sessionChanged, validateWebSession, webRequestHeaders, webSessionsEnabled, withBrowserAuthLock } from './browserSession';
+function configuredBaseUrl() {
+ const configured=(runtimeApiBaseUrl??process.env.EXPO_PUBLIC_API_BASE_URL)?.replace(/\/$/,'');
+ if(!configured||!webSessionsEnabled||typeof window==='undefined')return configured;
+ try {
+  const url=new URL(configured),hostname=window.location.hostname;
+  // localhost and 127.0.0.1 are different cookie sites. Keep local preview
+  // requests on the frontend's host without rewriting deployed API addresses.
+  if(['localhost','127.0.0.1'].includes(url.hostname)&&['localhost','127.0.0.1'].includes(hostname))url.hostname=hostname;
+  return url.toString().replace(/\/$/,'');
+ }catch{return configured;}
+}
+export const API_BASE_URL=configuredBaseUrl();
 const refreshing=new Map<string,Promise<AuthSession>>();
-interface Options {method?:string;body?:unknown;key?:string;public?:boolean;form?:FormData;retry?:boolean}
-const codes:Record<string,AppErrorCode>={UNAUTHORIZED:'unauthorized',NOT_FOUND:'not_found',INSUFFICIENT_FUNDS:'insufficient_funds',PAYMENT_FAILED:'payment_failed',VALIDATION:'validation'};
+interface Options {method?:string;body?:unknown;key?:string;public?:boolean;form?:FormData;retry?:boolean;webSession?:WebAuthSession}
+const codes:Record<string,AppErrorCode>={UNAUTHORIZED:'unauthorized',SESSION_CHANGED:'unauthorized',NOT_FOUND:'not_found',INSUFFICIENT_FUNDS:'insufficient_funds',PAYMENT_FAILED:'payment_failed',VALIDATION:'validation'};
 interface LoginBinding { id: number }
 let nextLoginId=0;
 let observedSession=useAuthStore.getState().session;
@@ -27,15 +39,39 @@ export async function refreshSession():Promise<AuthSession>{
  const previous=useAuthStore.getState().session;
  if(!previous)throw new AppError('unauthorized','Sign in to continue');
  const binding=currentLogin;
- const existing=refreshing.get(previous.refreshToken);if(existing)return existing;
- const operation=(async()=>{try{
- const next=await api<AuthSession>('/auth/refresh',{method:'POST',body:{refreshToken:previous.refreshToken},public:true});
+ const refreshKey=isWebSession(previous)?previous.sessionId:previous.refreshToken;
+ const existing=refreshing.get(refreshKey);if(existing)return existing;
+ const rotate=async()=>{
  requireLogin(binding);
- const state=useAuthStore.getState();if(state.session?.refreshToken!==previous.refreshToken)throw new AppError('unauthorized','Session changed');
+ let next:AuthSession;
+ let verifiedUser:User|undefined;
+ if(webSessionsEnabled){
+  if(!isWebSession(previous))throw sessionChanged();
+  const boot=await bootstrapBrowserSession(bindingOf(previous));
+  requireLogin(binding);
+  if(!boot)throw sessionChanged();
+  verifiedUser=boot.user;
+  // Another tab may already have rotated this login. Adopt its still-valid
+  // access session rather than rotating it again and disconnecting that tab.
+  // Missing/expired access is represented by bootstrap's past expiry and must
+  // still use the normal protected refresh path.
+  next=boot.session.sessionId!==previous.sessionId&&Date.parse(boot.session.expiresAt)>Date.now()+30000
+   ?boot.session
+   :validateWebSession(await api<AuthSession>('/auth/refresh',{method:'POST',body:{},public:true,webSession:boot.session}));
+  if(!sameBrowserLogin(bindingOf(previous),bindingOf(next)))throw sessionChanged();
+ }else{
+  if(isWebSession(previous))throw sessionChanged();
+  next=await api<AuthSession>('/auth/refresh',{method:'POST',body:{refreshToken:previous.refreshToken},public:true});
+ }
+ requireLogin(binding);
+ const state=useAuthStore.getState();if(state.session!==previous)throw sessionChanged();
  if(binding)refreshContinuations.set(next,binding);
- await state.signIn(next,state.user!);return next;
- }catch(e){if(e instanceof AppError&&e.code==='unauthorized'&&useAuthStore.getState().session?.refreshToken===previous.refreshToken)await useAuthStore.getState().signOut();throw e;}finally{refreshing.delete(previous.refreshToken);}})();
- refreshing.set(previous.refreshToken,operation);
+ await state.signIn(next,verifiedUser??state.user!);return next;
+ };
+ const operation=(async()=>{try{
+ return await(webSessionsEnabled?withBrowserAuthLock(rotate):rotate());
+ }catch(e){if(e instanceof AppError&&e.code==='unauthorized'&&useAuthStore.getState().session===previous)await useAuthStore.getState().signOut();throw e;}finally{refreshing.delete(refreshKey);}})();
+ refreshing.set(refreshKey,operation);
  return operation;
 }
 export async function api<T>(path:string,options:Options={}):Promise<T>{
@@ -48,11 +84,12 @@ async function requestForLogin<T>(path:string,options:Options,binding:LoginBindi
  if(!options.public&&session&&Date.parse(session.expiresAt)<=Date.now()+30000){session=await refreshSession();}
  if(!options.public)requireLogin(binding);
  let response:Response;
- try{response=await fetch(API_BASE_URL+path,{method:options.method??'GET',headers:{...(!options.form?{'Content-Type':'application/json'}:{}),...(!options.public&&session?{Authorization:`Bearer ${session.accessToken}`} :{}),...(options.key?{'Idempotency-Key':options.key}:{})},body:options.form??(options.body===undefined?undefined:JSON.stringify(options.body)),signal:AbortSignal.timeout(15000)});}catch{if(!options.public)requireLogin(binding);throw new AppError('network','Could not reach the ParkFlow backend');}
+ const cookieSession=options.webSession??(!options.public&&isWebSession(session)?session:undefined);
+ try{response=await fetch(API_BASE_URL+path,{method:options.method??'GET',headers:{...(!options.form?{'Content-Type':'application/json'}:{}),...(webSessionsEnabled?webRequestHeaders(cookieSession):!options.public&&session&&!isWebSession(session)?{Authorization:`Bearer ${session.accessToken}`} :{}),...(options.key?{'Idempotency-Key':options.key}:{})},...(webSessionsEnabled?{credentials:'include' as const}:{}),body:options.form??(options.body===undefined?undefined:JSON.stringify(options.body)),signal:AbortSignal.timeout(15000)});}catch{if(!options.public)requireLogin(binding);throw new AppError('network','Could not reach the ParkFlow backend');}
  if(!options.public)requireLogin(binding);
- if(response.status===401&&!options.public&&options.retry!==false&&session){await refreshSession();requireLogin(binding);return requestForLogin<T>(path,{...options,retry:false},binding);}
  const data=await response.json().catch(()=>null) as {error?:{code:string;message:string;details?:Record<string,unknown>}}|null;
  if(!options.public)requireLogin(binding);
+ if(response.status===401&&!options.public&&options.retry!==false&&session){await refreshSession();requireLogin(binding);return requestForLogin<T>(path,{...options,retry:false},binding);}
  if(!response.ok||data?.error){const code=data?.error?.code??'UNKNOWN';throw new AppError(codes[code]??(response.status===409?'conflict':response.status===400?'validation':'unknown'),data?.error?.message??'The request failed',{...data?.error?.details,serverCode:code,status:response.status});}
  return data as T;
 }

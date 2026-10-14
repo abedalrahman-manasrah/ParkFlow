@@ -61,6 +61,10 @@ const consumeEmailChallenge=`
  return {'OK',email,purpose,fullName}
 `;
 const ADMIN_SESSION_MAX_AGE_MS=8*60*60*1000;
+export type WebApplication='customer'|'management';
+export type WebBinding={webApplication:WebApplication;webBrowserId:string};
+export type AuthMeta={device?:string;ip?:string;webApplication?:WebApplication;webBrowserId?:string};
+export type NativeSession={userId:string;accessToken:string;refreshToken:string;expiresAt:string};
 async function revokeExpiredAdminFamily(tx:Tx,user:Pick<User,'id'|'role'>,familyId:string){
  if(user.role!=='ADMIN')return false;
  // Include revoked ancestors: refreshing must never move the absolute deadline.
@@ -99,14 +103,16 @@ export async function requestOtp(input:z.input<typeof emailRequestSchema>){
  }
  return {challengeId,email,resendAfterSeconds:60,expiresAt};
 }
-export async function issue(tx:Tx,user:User,meta:{device?:string;ip?:string},familyId:string=randomUUID(),developmentPhoneLogin=false,developmentEmailLogin=false){
+export async function issue(tx:Tx,user:User,meta:AuthMeta,familyId:string=randomUUID(),developmentPhoneLogin=false,developmentEmailLogin=false):Promise<NativeSession>{
  const id=randomUUID(),expiresAt=new Date(Date.now()+env.REFRESH_TOKEN_TTL*1000);
+ assert(Boolean(meta.webApplication)===Boolean(meta.webBrowserId),'UNAUTHORIZED','Invalid session binding',401);
+ const binding=meta.webApplication?{webApplication:meta.webApplication,webBrowserId:meta.webBrowserId,familyId}:{};
  const mode={...(developmentPhoneLogin?{developmentPhoneLogin:true}:{}),...(developmentEmailLogin?{developmentEmailLogin:true}:{})};
- const refreshToken=jwt.sign({sub:user.id,jti:id,familyId,kind:'refresh',...mode},env.JWT_REFRESH_SECRET,{algorithm:'HS256',expiresIn:env.REFRESH_TOKEN_TTL,issuer:'parkflow',audience:'parkflow-refresh'});
- await tx.refreshToken.create({data:{id,userId:user.id,tokenHash:digest(refreshToken),familyId,expiresAt,...meta}});
- return {userId:user.id,accessToken:jwt.sign({sub:user.id,sid:id,kind:'access',...mode},env.JWT_ACCESS_SECRET,{algorithm:'HS256',expiresIn:env.ACCESS_TOKEN_TTL,issuer:'parkflow',audience:'parkflow-api'}),refreshToken,expiresAt:new Date(Date.now()+env.ACCESS_TOKEN_TTL*1000).toISOString()};
+ const refreshToken=jwt.sign({sub:user.id,jti:id,familyId,kind:'refresh',...mode,...binding},env.JWT_REFRESH_SECRET,{algorithm:'HS256',expiresIn:env.REFRESH_TOKEN_TTL,issuer:'parkflow',audience:'parkflow-refresh'});
+ await tx.refreshToken.create({data:{id,userId:user.id,tokenHash:digest(refreshToken),familyId,expiresAt,device:meta.device,ip:meta.ip}});
+ return {userId:user.id,accessToken:jwt.sign({sub:user.id,sid:id,kind:'access',...mode,...binding},env.JWT_ACCESS_SECRET,{algorithm:'HS256',expiresIn:env.ACCESS_TOKEN_TTL,issuer:'parkflow',audience:'parkflow-api'}),refreshToken,expiresAt:new Date(Date.now()+env.ACCESS_TOKEN_TTL*1000).toISOString()};
 }
-export async function verifyOtp(input:{challengeId:string;code:string},meta:{device?:string;ip?:string}){
+export async function verifyOtp(input:{challengeId:string;code:string},meta:AuthMeta){
  requireAuthMethod('email');
  requireOtpEnabled();
  const storedEmail=await redis.hget(emailChallengeKey(input.challengeId),'email');
@@ -131,7 +137,7 @@ export async function verifyOtp(input:{challengeId:string;code:string},meta:{dev
  return {session:await issue(tx,user,meta),user:userView(user),isNewUser:!user.profileCompletedAt};
  });
 }
-export async function devLogin(input:z.input<typeof devEmailLoginSchema>,meta:{device?:string;ip?:string}){
+export async function devLogin(input:z.input<typeof devEmailLoginSchema>,meta:AuthMeta){
  requireAuthMethod('email');
  assert(developmentEmailLoginEnabled(),'DEV_LOGIN_DISABLED','Development login is disabled',403);
  const parsed=devEmailLoginSchema.parse(input);
@@ -149,14 +155,21 @@ export async function devLogin(input:z.input<typeof devEmailLoginSchema>,meta:{d
   return {session:await issue(tx,user,meta,undefined,false,true),user:userView(user),isNewUser:!user.profileCompletedAt};
  });
 }
-export function verifyAccess(token:string){try{
+function assertTransport(v:jwt.JwtPayload,binding?:WebBinding){
+ if(binding)assert(v.webApplication===binding.webApplication&&v.webBrowserId===binding.webBrowserId&&typeof v.familyId==='string','UNAUTHORIZED','Invalid browser session binding',401);
+ else assert(v.webApplication===undefined&&v.webBrowserId===undefined,'UNAUTHORIZED','Browser credentials require the cookie transport',401);
+}
+function accessClaims(token:string,binding?:WebBinding){try{
  const v=jwt.verify(token,env.JWT_ACCESS_SECRET,{algorithms:['HS256'],issuer:'parkflow',audience:'parkflow-api'}) as jwt.JwtPayload;
  assert(!v.developmentPhoneLogin||developmentPhoneLoginEnabled(),'UNAUTHORIZED','Development session has ended. Sign in with a verification code.',401);
  assert(!v.developmentEmailLogin||developmentEmailLoginEnabled(),'UNAUTHORIZED','Development email session has ended. Sign in again.',401);
- assert(v.kind==='access'&&typeof v.sub==='string'&&typeof v.sid==='string','UNAUTHORIZED','Invalid token',401);return {userId:v.sub,sid:v.sid,exp:v.exp!};
+ assertTransport(v,binding);
+ assert(v.kind==='access'&&typeof v.sub==='string'&&typeof v.sid==='string'&&typeof v.exp==='number','UNAUTHORIZED','Invalid token',401);return {userId:v.sub,sid:v.sid,exp:v.exp,...(binding?{familyId:v.familyId as string}:{})};
  }catch{throw new ApiError(401,'UNAUTHORIZED','Invalid or expired access token');}}
-export async function authenticate(token:string){const claims=verifyAccess(token);const record=await db.refreshToken.findUnique({where:{id:claims.sid},include:{user:true}});
- assert(record&&record.userId===claims.userId&&!record.revokedAt&&record.expiresAt>new Date()&&record.user.status==='ACTIVE','UNAUTHORIZED','Session has ended',401);
+export function verifyAccess(token:string){return accessClaims(token);}
+export function verifyWebAccess(token:string,binding:WebBinding){return accessClaims(token,binding);}
+async function authenticateClaims(claims:ReturnType<typeof accessClaims>){const record=await db.refreshToken.findUnique({where:{id:claims.sid},include:{user:true}});
+ assert(record&&record.userId===claims.userId&&(!claims.familyId||record.familyId===claims.familyId)&&!record.revokedAt&&record.expiresAt>new Date()&&record.user.status==='ACTIVE','UNAUTHORIZED','Session has ended',401);
  if(record.user.role==='ADMIN'){
   const role=await atomic(async tx=>{
    await lock(tx,`refresh:${record.familyId}`);
@@ -169,20 +182,49 @@ export async function authenticate(token:string){const claims=verifyAccess(token
   assert(role,'UNAUTHORIZED','Admin session has ended. Sign in again.',401);return {...claims,role};
  }
  return {...claims,role:record.user.role};}
-export async function refresh(token:string,meta:{device?:string;ip?:string}){
+export async function authenticate(token:string){return authenticateClaims(verifyAccess(token));}
+export async function authenticateWeb(token:string,binding:WebBinding){return authenticateClaims(verifyWebAccess(token,binding));}
+function refreshClaims(token:string,binding?:WebBinding){
  let claims:jwt.JwtPayload;
  try{claims=jwt.verify(token,env.JWT_REFRESH_SECRET,{algorithms:['HS256'],issuer:'parkflow',audience:'parkflow-refresh'}) as jwt.JwtPayload;}catch{throw new ApiError(401,'UNAUTHORIZED','Refresh token expired');}
- assert(claims.kind==='refresh'&&(!claims.developmentPhoneLogin||developmentPhoneLoginEnabled())&&(!claims.developmentEmailLogin||developmentEmailLoginEnabled()),'UNAUTHORIZED','Session has ended. Sign in again.',401);
+ assertTransport(claims,binding);
+ assert(claims.kind==='refresh'&&typeof claims.sub==='string'&&typeof claims.jti==='string'&&typeof claims.familyId==='string'&&typeof claims.exp==='number'&&(!claims.developmentPhoneLogin||developmentPhoneLoginEnabled())&&(!claims.developmentEmailLogin||developmentEmailLoginEnabled()),'UNAUTHORIZED','Session has ended. Sign in again.',401);
+ return claims;
+}
+// Bootstrap and conditional logout require a signed token AND its stored hash.
+// Merely knowing a browser-slot id or family id can never restore a login.
+export async function inspectWebRefresh(token:string,binding:WebBinding,allowRevoked=false){
+ const claims=refreshClaims(token,binding);
+ const record=await db.refreshToken.findUnique({where:{tokenHash:digest(token)},include:{user:true}});
+ assert(record&&record.id===claims.jti&&record.userId===claims.sub&&record.familyId===claims.familyId&&record.expiresAt>new Date(),'UNAUTHORIZED','Invalid browser refresh proof',401);
+ if(!allowRevoked){
+  assert(!record.revokedAt&&record.user.status==='ACTIVE','UNAUTHORIZED','Session has ended',401);
+  if(record.user.role==='ADMIN'){
+   const alive=await atomic(async tx=>{
+    await lock(tx,`refresh:${record.familyId}`);
+    const current=await tx.refreshToken.findUnique({where:{id:record.id},include:{user:true}});
+    if(!current||current.revokedAt||current.expiresAt<=new Date()||current.user.status!=='ACTIVE')return false;
+    return !(await revokeExpiredAdminFamily(tx,current.user,current.familyId));
+   });
+   assert(alive,'UNAUTHORIZED','Admin session has ended. Sign in again.',401);
+  }
+ }
+ return record;
+}
+async function rotateRefresh(token:string,meta:AuthMeta,binding?:WebBinding){
+ const claims=refreshClaims(token,binding);
  const result=await atomic(async tx=>{const old=await tx.refreshToken.findUnique({where:{tokenHash:digest(token)},include:{user:true}});
- if(!old)return null;
+ if(!old||old.id!==claims.jti||old.userId!==claims.sub||old.familyId!==claims.familyId)return null;
  await lock(tx,`refresh:${old.familyId}`);
  const current=requireValue(await tx.refreshToken.findUnique({where:{id:old.id},include:{user:true}}));
- if(current.revokedAt){await tx.refreshToken.updateMany({where:{familyId:old.familyId,revokedAt:null},data:{revokedAt:new Date()}});return null;}
+ if(current.revokedAt){if(!binding)await tx.refreshToken.updateMany({where:{familyId:old.familyId,revokedAt:null},data:{revokedAt:new Date()}});return null;}
  if(await revokeExpiredAdminFamily(tx,current.user,current.familyId))return null;
  if(current.expiresAt<=new Date()||current.user.status!=='ACTIVE')return null;
- const next=await issue(tx,current.user,meta,old.familyId,claims.developmentPhoneLogin===true,claims.developmentEmailLogin===true);
+ const next=await issue(tx,current.user,{device:meta.device,ip:meta.ip,...binding},old.familyId,claims.developmentPhoneLogin===true,claims.developmentEmailLogin===true);
  const nextClaims=jwt.decode(next.refreshToken) as jwt.JwtPayload;
  await tx.refreshToken.update({where:{id:old.id},data:{revokedAt:new Date(),replacedBy:nextClaims.jti}});return next;});
- assert(result,'UNAUTHORIZED','Refresh token was revoked or reused',401);return result;
+ assert(result,binding?'SESSION_CHANGED':'UNAUTHORIZED','Refresh token was revoked or reused',401);return result;
 }
+export async function refresh(token:string,meta:AuthMeta){return rotateRefresh(token,meta);}
+export async function refreshWeb(token:string,meta:AuthMeta&WebBinding){return rotateRefresh(token,meta,meta);}
 export async function logout(userId:string,sid:string,all=false){await db.refreshToken.updateMany({where:{userId,...(all?{}:{id:sid}),revokedAt:null},data:{revokedAt:new Date()}});}

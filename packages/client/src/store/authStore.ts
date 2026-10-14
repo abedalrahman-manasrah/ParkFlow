@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 import type { AuthSession, User } from '@parkflow/contracts';
 import { secureStorage, STORAGE_KEYS } from '../services/storage';
+import { bindingOf, bootstrapBrowserSession, clearLogoutFence, isWebSession, markBrowserLogout, readBrowserBinding, sameBrowserLogin, saveBrowserBinding, validateWebSession, webSessionsEnabled, withBrowserAuthLock } from '../services/http/browserSession';
 
 /**
- * Auth is deliberately NOT using zustand/persist: the token lives in SecureStore
- * and is written explicitly, so we never risk it leaking into a generic
- * AsyncStorage blob alongside preferences.
+ * Native credentials live in SecureStore. Browser credentials live only in
+ * HttpOnly cookies; the store keeps server-proven session metadata in memory.
  */
 interface AuthState {
   session?: AuthSession;
@@ -16,7 +16,7 @@ interface AuthState {
   hydrate: () => Promise<void>;
   signIn: (session: AuthSession, user: User, shouldApply?: () => boolean) => Promise<void>;
   setUser: (user: User) => void;
-  signOut: () => Promise<void>;
+  signOut: (serverLogoutCompleted?: boolean) => Promise<void>;
 }
 
 interface PersistedAuth {
@@ -25,6 +25,7 @@ interface PersistedAuth {
 }
 
 let authenticationEpoch = 0;
+const restoredWebSessions = new WeakSet<AuthSession>();
 let persistenceTail: Promise<unknown> = Promise.resolve();
 function persistInOrder<T>(operation: () => Promise<T>): Promise<T> {
   const pending = persistenceTail.then(operation, operation);
@@ -40,6 +41,16 @@ function cancelledVerification() {
   error.name = 'AbortError';
   return error;
 }
+async function persistAuthentication(session: AuthSession, user: User) {
+  if (webSessionsEnabled) {
+    validateWebSession(session);
+    await secureStorage.removeItem(STORAGE_KEYS.authSession);
+    await saveBrowserBinding(session as Extract<AuthSession, { transport: 'cookie' }>);
+    await clearLogoutFence();
+  } else {
+    await secureStorage.setItem(STORAGE_KEYS.authSession, JSON.stringify({ session, user }));
+  }
+}
 
 export const useAuthStore = create<AuthState>()((set) => ({
   session: undefined,
@@ -49,6 +60,26 @@ export const useAuthStore = create<AuthState>()((set) => ({
   hydrate: async () => {
     let parsed: PersistedAuth | undefined;
     const epoch = authenticationEpoch;
+    if (webSessionsEnabled) {
+      try {
+        await withBrowserAuthLock(async () => {
+          await persistInOrder(() => secureStorage.removeItem(STORAGE_KEYS.authSession));
+          if (epoch !== authenticationEpoch) return;
+          const remembered = await readBrowserBinding();
+          const verified = await bootstrapBrowserSession();
+          if (epoch !== authenticationEpoch) return;
+          if (verified) {
+            // Preserve the car marker only after the server proves the same
+            // previously published login. A cache alone never authorizes it.
+            if (sameBrowserLogin(remembered, bindingOf(verified.session))) restoredWebSessions.add(verified.session);
+            await useAuthStore.getState().signIn(verified.session, verified.user);
+          }
+        });
+      } catch {
+        // Offline startup has no proof of cookie identity. Never revive a cache.
+      } finally { set({ hydrated: true }); }
+      return;
+    }
     try {
       await persistInOrder(async () => {
         if (epoch !== authenticationEpoch) return;
@@ -89,23 +120,27 @@ export const useAuthStore = create<AuthState>()((set) => ({
 
   signIn: async (session, user, shouldApply) => {
     if (shouldApply?.() === false) throw cancelledVerification();
+    if (webSessionsEnabled) validateWebSession(session);
+    if (session.userId !== user.id) throw new Error('Authentication identity does not match session');
+    const restoringSameWebLogin = restoredWebSessions.delete(session);
     const epoch = ++authenticationEpoch;
     const current = () => epoch === authenticationEpoch && shouldApply?.() !== false;
     await persistInOrder(async () => {
       let finishRouteChange: (() => void) | undefined;
       try {
         if (!current()) throw cancelledVerification();
-        if (useAuthStore.getState().user?.id !== user.id) {
+        const previousUser = useAuthStore.getState().user;
+        if (previousUser?.id !== user.id && !(restoringSameWebLogin && !previousUser)) {
           const { clearReservationRouteForAccountChange } = await import('./reservationRouteStore');
           finishRouteChange = await clearReservationRouteForAccountChange();
           if (!current()) throw cancelledVerification();
         }
-        await secureStorage.setItem(STORAGE_KEYS.authSession, JSON.stringify({ session, user }));
+        await persistAuthentication(session, user);
         if (!current()) {
           // No later auth write can run until this restoration completes.
           const state = useAuthStore.getState();
           if (state.session && state.user) {
-            await secureStorage.setItem(STORAGE_KEYS.authSession, JSON.stringify({ session: state.session, user: state.user }));
+            await persistAuthentication(state.session, state.user);
           } else {
             await secureStorage.removeItem(STORAGE_KEYS.authSession);
           }
@@ -122,7 +157,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
     const session = useAuthStore.getState().session;
     if (session && session.userId !== user.id) return;
     set({ user });
-    if (session) {
+    if (session && !webSessionsEnabled) {
       void persistInOrder(async () => {
         const state = useAuthStore.getState();
         if (state.session && state.user) await secureStorage.setItem(STORAGE_KEYS.authSession, JSON.stringify({ session: state.session, user: state.user }));
@@ -130,13 +165,19 @@ export const useAuthStore = create<AuthState>()((set) => ({
     }
   },
 
-  signOut: async () => {
+  signOut: async (serverLogoutCompleted = false) => {
     ++authenticationEpoch;
     const previousUserId = useAuthStore.getState().user?.id;
+    const previousSession = useAuthStore.getState().session;
     await persistInOrder(async () => {
-      const { clearReservationRouteForAccountChange } = await import('./reservationRouteStore');
-      const finishRouteChange = await clearReservationRouteForAccountChange();
+      let finishRouteChange: (() => void) | undefined;
       try {
+        if (webSessionsEnabled && isWebSession(previousSession)) {
+          if (serverLogoutCompleted) await clearLogoutFence(previousSession);
+          else await markBrowserLogout(previousSession);
+        }
+        const { clearReservationRouteForAccountChange } = await import('./reservationRouteStore');
+        finishRouteChange = await clearReservationRouteForAccountChange();
         if (previousUserId) {
           const { retryQueue } = await import('../offline/retryQueue');
           await retryQueue.clearUser(previousUserId);
@@ -144,7 +185,8 @@ export const useAuthStore = create<AuthState>()((set) => ({
         await secureStorage.removeItem(STORAGE_KEYS.authSession);
         set({ session: undefined, user: undefined });
       } finally {
-        finishRouteChange();
+        if (webSessionsEnabled) set({ session: undefined, user: undefined });
+        finishRouteChange?.();
       }
     });
   },

@@ -36,7 +36,11 @@ providers or operator processes before public use.
 
 Requirements: Node.js, npm, and Docker Desktop with its Linux engine running.
 
-1. Install the frontend dependencies with `npm ci`.
+1. Install the frontend dependencies with `npm ci`. Postinstall applies reviewed
+   security backports automatically; `npm run security:verify` checks their source
+   integrity. If installation disables scripts, run `npm run security:patch`
+   before verification or starting Expo. See the
+   [backport maintenance guide](security/dependency-patches/README.md).
 2. Copy `apps/customer/.env.example` to `apps/customer/.env`,
    `apps/management/.env.example` to `apps/management/.env`, and
    `server/.env.example` to `server/.env`.
@@ -224,9 +228,16 @@ coordinates onto a styled surface. Android Google Maps tiles require a configure
 Maps SDK key and an appropriate development build. `apps/customer/app.config.js` reads
 `GOOGLE_MAPS_API_KEY` from `apps/customer/.env` or the build environment. iOS uses Apple Maps.
 
-Device tokens use SecureStore. Web storage does not provide the same protection
-as a device secure store. Arabic layout direction is driven by React state, so
-language changes do not require an application restart.
+Native authentication tokens use SecureStore. Web access/refresh tokens use
+application-specific HttpOnly cookies and are absent from JSON and browser
+storage. Browser requests bind Origin, application, expected login/session and
+CSRF proof; reload restores identity from the server. Production requires
+same-site HTTPS and disjoint `WEB_CUSTOMER_ORIGINS` / `WEB_MANAGEMENT_ORIGINS`.
+Use one consistent local hostname across the applications and API. The
+[web security audit](docs/security/2026-10-15-web-session-security-audit.md)
+records lifecycle details, verification results and remaining deployment limits.
+Arabic layout direction is driven by React state, so language changes do not
+require an application restart.
 
 Private `.env` files, database backups, runtime artifacts, assistant sessions and
 provider support diagnostics are excluded from Git. Copy the example environment

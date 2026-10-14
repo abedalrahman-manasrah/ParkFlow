@@ -39,9 +39,9 @@ async function scenario(run, pauseRequestStorage = false) {
     },
   };
   const loaderOptions = { stubs: {
-    'react-native': { Platform: { OS: 'web' } },
+    'react-native': { Platform: { OS: 'android' } },
     '@react-native-async-storage/async-storage': storage,
-    'expo-secure-store': {},
+    'expo-secure-store': { getItemAsync: storage.getItem, setItemAsync: storage.setItem, deleteItemAsync: storage.removeItem },
   } };
   const load = createClientLoader(loaderOptions);
   const store = load('@parkflow/client/store/authStore').useAuthStore;

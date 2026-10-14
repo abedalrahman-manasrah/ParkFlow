@@ -20,12 +20,27 @@ export interface User {
   updatedAt: ISODateString;
 }
 
-export interface AuthSession {
+/** Native credentials are stored in the operating system's protected store. */
+export interface BearerAuthSession {
+  transport?: 'bearer';
   userId: ID;
   accessToken: string;
   refreshToken: string;
   expiresAt: ISODateString;
 }
+
+/** Browser credentials remain in HttpOnly cookies, never in this DTO. */
+export interface WebAuthSession {
+  transport: 'cookie';
+  userId: ID;
+  sessionId: ID;
+  /** Stable across refresh rotation; a new login gets a different identity. */
+  loginId: ID;
+  expiresAt: ISODateString;
+  csrfToken: string;
+}
+
+export type AuthSession = BearerAuthSession | WebAuthSession;
 
 export interface OtpChallenge {
   challengeId: ID;
