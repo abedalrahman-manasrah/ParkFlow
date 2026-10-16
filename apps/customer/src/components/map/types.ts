@@ -7,6 +7,11 @@ import type {
   RamallahParkingLocation,
   RoadReport,
   RoadReportType,
+  RouteTrafficSegment,
+  CarServiceBusiness,
+  CarServiceCategory,
+  TourismPlace,
+  TourismPlaceCategory,
 } from '@parkflow/contracts';
 
 export interface MapCheckpoint {
@@ -19,6 +24,12 @@ export interface MapCheckpoint {
 
 export interface MapRoute {
   coordinates: GeoPoint[];
+  trafficState?: RouteTrafficSegment['state'];
+  trafficSegments?: RouteTrafficSegment[];
+  /** Need-aware route portions that diverge from the shortest route. */
+  detourSegments?: GeoPoint[][];
+  detourMode?: 'primary' | 'comparison';
+  showRouteLegend?: boolean;
   /** Alternatives that were not taken — drawn dashed. */
   alternatives: GeoPoint[][];
 }
@@ -28,12 +39,29 @@ export interface MapLandmark {
   location: GeoPoint;
 }
 
+export interface MapNeedStop {
+  id: string;
+  name: string;
+  category: string;
+  location: GeoPoint;
+}
+
 /**
  * Platform-agnostic map contract. The native implementation renders
  * react-native-maps; the web implementation renders Leaflet with satellite tiles
  * so the app is fully previewable in a browser. Screens only ever see this interface.
  */
 export interface MapSurfaceProps {
+  carServices?: CarServiceBusiness[];
+  activeCarServiceCategory?: CarServiceCategory;
+  selectedCarServiceId?: string;
+  onSelectCarService?: (service: CarServiceBusiness) => void;
+  carServiceAccessibilityLabel?: (service: CarServiceBusiness) => string;
+  tourismPlaces?: TourismPlace[];
+  selectedTourismPlaceId?: string;
+  onSelectTourismPlace?: (place: TourismPlace) => void;
+  tourismPlaceMarkerCategory?: (place: TourismPlace) => TourismPlaceCategory;
+  tourismPlaceAccessibilityLabel?: (place: TourismPlace) => string;
   evStations?: import('@parkflow/contracts').EvChargingStation[];
   selectedEvStationId?: string;
   onSelectEvStation?: (station: import('@parkflow/contracts').EvChargingStation) => void;
@@ -59,6 +87,7 @@ export interface MapSurfaceProps {
   route?: MapRoute;
   /** The place a landmark search resolved to. */
   landmark?: MapLandmark;
+  needStops?: MapNeedStop[];
   style?: StyleProp<ViewStyle>;
 }
 

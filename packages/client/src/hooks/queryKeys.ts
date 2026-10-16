@@ -47,6 +47,14 @@ export const queryKeys = {
   route: (from?: GeoPoint, to?: GeoPoint, mode = 'checkpoint-aware') =>
     ['route', pointKey(from), pointKey(to), mode] as const,
   trust: (userId: string) => ['trust', userId] as const,
+
+  rideSearch: (search: { from?: string; to?: string; after?: string; before?: string }, userId = 'anonymous') =>
+    ['rides', userId, 'search', search.from ?? '', search.to ?? '', search.after ?? '', search.before ?? ''] as const,
+  myRides: (userId = 'anonymous') => ['rides', userId, 'mine'] as const,
+  ride: (rideId: string, userId = 'anonymous') => ['ride', userId, rideId] as const,
+  spots: (near?: GeoPoint, userId = 'anonymous') => ['spots', userId, 'list', pointKey(near)] as const,
+  mySpots: (userId = 'anonymous') => ['spots', userId, 'mine'] as const,
+  spot: (spotId: string, userId = 'anonymous') => ['spot', userId, spotId] as const,
 } as const;
 
 /** Everything that changes when money moves. */

@@ -8,6 +8,7 @@ import { atomic, db, lock, type Tx } from '../../database/client';
 import { assert, requireValue } from '../../utils/errors';
 import { calculateConfidence } from './confidence';
 import { distanceMeters } from '../../utils/geo';
+import { awardIncidentReport, settlePoints } from '../trust/rewards';
 
 const DEFAULT_EXPIRATION_MINUTES: Record<RoadReportType, number> = {
   traffic_congestion: 30,
@@ -101,6 +102,18 @@ function toDto<T extends {
   return { ...safe, isOwnReport, viewerVote, canVote: isActive && !isOwnReport && viewerVote === null };
 }
 
+/**
+ * Other drivers' votes settle the reporter's points early: a confirmed report pays
+ * out right away, a disputed or resolved one is revoked. Anything still unverified
+ * waits for the maintenance job's time window.
+ */
+async function settleReporterPoints(tx: Tx, report: { id: string; status: string }) {
+  const verified = report.status === 'confirmed';
+  if (!verified && report.status !== 'disputed' && report.status !== 'resolved') return;
+  const pending = await tx.pointsEntry.findMany({ where: { incidentReportId: report.id, state: 'pending' } });
+  for (const entry of pending) await settlePoints(tx, entry, verified);
+}
+
 export async function create(userId: string, input: CreateRoadReportInput) {
   return atomic(async (tx) => {
     await lock(tx, `road-report-create:${userId}`);
@@ -155,10 +168,12 @@ export async function create(userId: string, input: CreateRoadReportInput) {
         });
         confirmationAdded = true;
       }
+      if (confirmationAdded) await settleReporterPoints(tx, report);
       return {
         created: false,
         duplicate: true,
         confirmationAdded,
+        points: null,
         report: toDto({ ...report, votes: viewerVote ? [viewerVote] : [] }, userId),
       };
     }
@@ -175,10 +190,12 @@ export async function create(userId: string, input: CreateRoadReportInput) {
         expiresAt,
       },
     });
+    const points = await awardIncidentReport(tx, userId, report.id);
     return {
       created: true,
       duplicate: false,
       confirmationAdded: false,
+      points,
       report: toDto(report, userId),
     };
   });
@@ -233,6 +250,7 @@ export async function vote(userId: string, id: string, voteType: RoadReportVoteT
       where: { id },
       data: { confirmationCount, rejectionCount, ...confidence },
     });
+    await settleReporterPoints(tx, updated);
     return toDto({ ...updated, votes: [{ vote: voteType }] }, userId);
   });
 }

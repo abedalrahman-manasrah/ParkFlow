@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { Redirect, useFocusEffect, useRouter } from 'expo-router';
 import { useMutation } from '@tanstack/react-query';
 import type { AuthResult } from '@parkflow/contracts/services';
-import { AppButton, AppHeader, AppText, InlineNotice, OtpInput, PressableScale, Reveal, Screen } from '../../components/ui/index';
+import { AppButton, AppHeader, AppText, InlineNotice, OnboardingStepper, OtpInput, PressableScale, Reveal, Screen } from '../../components/ui/index';
 import { spacing } from '@parkflow/design/spacing';
 import { useLocale } from '../../hooks/useLocale';
 import { useDeadline } from '../../hooks/useDeadline';
@@ -124,6 +124,7 @@ export default function EmailOtpScreen() {
   return (
     <Screen keyboardAvoiding>
       <AppHeader />
+      <OnboardingStepper current={state.purpose === 'register' ? 2 : 1} steps={state.purpose === 'register' ? undefined : ['email', 'verify']} />
       <Reveal style={{ gap: spacing.sm }}>
         <AppText variant="h1">{t('onboarding.otpEmailTitle')}</AppText>
         <AppText variant="bodyLg" color="textSecondary">{t('onboarding.otpEmailSubtitle', { email: challenge.email })}</AppText>

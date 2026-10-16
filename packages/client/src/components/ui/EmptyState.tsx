@@ -72,7 +72,7 @@ export function EmptyState({
           onPress={action.onPress}
           size="md"
           fullWidth={false}
-          style={{ marginTop: spacing.sm, paddingHorizontal: spacing.xxl }}
+          style={{ alignSelf: 'center', marginTop: spacing.sm, paddingHorizontal: spacing.xxl }}
         />
       ) : null}
 
@@ -83,6 +83,7 @@ export function EmptyState({
           variant="ghost"
           size="sm"
           fullWidth={false}
+          style={{ alignSelf: 'center' }}
         />
       ) : null}
     </View>

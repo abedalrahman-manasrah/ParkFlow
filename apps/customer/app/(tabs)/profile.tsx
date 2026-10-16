@@ -8,9 +8,12 @@ import {
   CalendarCheck,
   CircleHelp,
   CreditCard,
+  DoorOpen,
   Info,
+  QrCode,
   LogOut,
   ScrollText,
+  ShieldCheck,
   Settings,
   TriangleAlert,
   User as UserIcon,
@@ -27,11 +30,13 @@ import {
   Divider,
   ListItem,
   Screen,
+  TabHeader,
 } from '@parkflow/client/components/ui';
 import { useTheme } from '@parkflow/client/theme/ThemeProvider';
 import { spacing } from '@parkflow/design/spacing';
 import { radius } from '@parkflow/design/radius';
 import { useLocale } from '@parkflow/client/hooks/useLocale';
+import { useIsGateStaff } from '@parkflow/client/hooks/useGates';
 import { useCurrentUser } from '@parkflow/client/hooks/useSession';
 import { useTrust } from '@parkflow/client/hooks/useCommunity';
 import { useAuthStore } from '@parkflow/client/store/authStore';
@@ -64,6 +69,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { t, dateLocale } = useLocale();
+  const staff = useIsGateStaff();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
 
@@ -95,7 +101,7 @@ export default function ProfileScreen() {
           paddingBottom: TAB_BAR_CLEARANCE + insets.bottom,
         }}
       >
-        <AppText variant="h1">{t('profile.title')}</AppText>
+        <TabHeader title={t('profile.title')} />
 
         <Card padding="xl" style={{ alignItems: 'center', gap: spacing.md }}>
           <Avatar name={user?.fullName} size={76} />
@@ -150,7 +156,36 @@ export default function ProfileScreen() {
             showChevron
             onPress={() => router.push('/parking/reservations')}
           />
+          <Divider inset={52} />
+          <ListItem
+            title={t('gate.passTitle')}
+            leading={<MenuIcon><QrCode {...iconProps} /></MenuIcon>}
+            showChevron
+            onPress={() => router.push('/gate/pass')}
+          />
         </Card>
+
+        {staff.gate || staff.patrol ? (
+          <Card padding="lg" style={{ paddingVertical: spacing.xs }}>
+            {staff.gate ? (
+              <>
+                <ListItem
+                  title={t('gate.modeTitle')}
+                  leading={<MenuIcon><DoorOpen {...iconProps} /></MenuIcon>}
+                  showChevron
+                  onPress={() => router.push('/gate')}
+                />
+                {staff.patrol ? <Divider inset={52} /> : null}
+              </>
+            ) : null}
+            {staff.patrol ? <ListItem
+              title={t('patrol.title')}
+              leading={<MenuIcon><ShieldCheck {...iconProps} /></MenuIcon>}
+              showChevron
+              onPress={() => router.push('/gate/patrol')}
+            /> : null}
+          </Card>
+        ) : null}
 
         <Card padding="lg" style={{ paddingVertical: spacing.xs }}>
           <ListItem

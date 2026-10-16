@@ -15,7 +15,7 @@ import { routingService } from '../../modules/routing/service';
 route('get','/wallet',empty,r=>wallet.get(user(r)));
 route('patch','/wallet/auto-topup',z.object({enabled:z.boolean(),threshold:money.optional(),amount:money.min(100).optional()}).strict(),(r,b)=>wallet.autoTopup(user(r),b));
 route('post','/wallet/topups',z.object({amount:money.min(100),paymentMethodId:id}).strict(),(r,b)=>wallet.topup(user(r),b,key(r)));
-route('get','/wallet/transactions',z.object({types:z.string().regex(/^(topup|parking_payment|violation_payment|refund|adjustment)(,(topup|parking_payment|violation_payment|refund|adjustment))*$/).optional(),limit}).strict(),(r,b)=>wallet.transactions(user(r),b.types?.split(','),b.limit));
+route('get','/wallet/transactions',z.object({types:z.string().regex(/^(topup|parking_payment|violation_payment|refund|adjustment|reward|ride_payment|spot_payment|earning)(,(topup|parking_payment|violation_payment|refund|adjustment|reward|ride_payment|spot_payment|earning))*$/).optional(),limit}).strict(),(r,b)=>wallet.transactions(user(r),b.types?.split(','),b.limit));
 route('get','/wallet/transactions/:id',empty,r=>wallet.transaction(user(r),param(r)));
 route('get','/payment-methods',empty,r=>wallet.methods(user(r)));
 route('post','/payment-methods',z.object({last4:z.string().regex(/^\d{4}$/),brand:z.enum(['visa','mastercard','amex']),expiryMonth:z.number().int().min(1).max(12),expiryYear:z.number().int().min(new Date().getFullYear()).max(2100),holderName:text.optional(),makeDefault:z.boolean().optional(),providerToken:z.string().max(2000).optional()}).strict(),(r,b)=>wallet.addMethod(user(r),b));

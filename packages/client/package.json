@@ -143,7 +143,37 @@
     "./utils/plate": "./src/utils/plate.ts",
     "./utils/pricing": "./src/utils/pricing.ts",
     "./utils/routeImpact": "./src/utils/routeImpact.ts",
-    "./utils/time": "./src/utils/time.ts"
+    "./utils/time": "./src/utils/time.ts",
+    "./components/ui/OnboardingStepper": "./src/components/ui/OnboardingStepper.tsx",
+    "./components/ui/TabHeader": "./src/components/ui/TabHeader.tsx",
+    "./hooks/useCarServices": "./src/hooks/useCarServices.ts",
+    "./hooks/useCrashDetection": "./src/hooks/useCrashDetection.ts",
+    "./hooks/useGates": "./src/hooks/useGates.ts",
+    "./hooks/useSharing": "./src/hooks/useSharing.ts",
+    "./hooks/useTourismPlaces": "./src/hooks/useTourismPlaces.ts",
+    "./store/carServicesStore": "./src/store/carServicesStore.ts",
+    "./store/crashAlertStore": "./src/store/crashAlertStore.ts",
+    "./store/inAppNotificationStore": "./src/store/inAppNotificationStore.ts",
+    "./store/tourismPlacesStore": "./src/store/tourismPlacesStore.ts",
+    "./store/warningServiceNavigationStore": "./src/store/warningServiceNavigationStore.ts",
+    "./services/http/carServiceService": "./src/services/http/carServiceService.ts",
+    "./services/http/emergencyService": "./src/services/http/emergencyService.ts",
+    "./services/http/gateService": "./src/services/http/gateService.ts",
+    "./services/http/sharingService": "./src/services/http/sharingService.ts",
+    "./services/http/tourismPlaceService": "./src/services/http/tourismPlaceService.ts",
+    "./services/http/vehicleWarningService": "./src/services/http/vehicleWarningService.ts",
+    "./services/placeSearchService": "./src/services/placeSearchService.ts",
+    "./utils/crashDetectionNative": "./src/utils/crashDetectionNative.ts",
+    "./utils/crashDetector": "./src/utils/crashDetector.ts",
+    "./utils/emergencyCall": "./src/utils/emergencyCall.ts",
+    "./utils/parkingRecommendation": "./src/utils/parkingRecommendation.ts",
+    "./utils/sharing": "./src/utils/sharing.ts",
+    "./utils/tripNeeds": "./src/utils/tripNeeds.ts",
+    "./utils/tripNeedsRouting": "./src/utils/tripNeedsRouting.ts",
+    "./utils/voice": "./src/utils/voice.ts",
+    "./data/cities": "./src/data/cities.ts",
+    "./services/crashEvents": "./src/services/crashEvents.ts",
+    "./utils/accountOperation": "./src/utils/accountOperation.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
@@ -189,6 +219,10 @@
     "zod": "^4.4.3",
     "zustand": "^5.0.15",
     "@parkflow/contracts": "*",
-    "@parkflow/design": "*"
+    "@parkflow/design": "*",
+    "expo-intent-launcher": "~57.0.1",
+    "expo-sensors": "~57.0.3",
+    "expo-speech": "~57.0.3",
+    "expo-speech-recognition": "^57.1.0"
   }
 }

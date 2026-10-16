@@ -15,7 +15,9 @@ async function assertNoClosure(tx:Tx,zoneId:string,start:Date,end?:Date){
  const closure=await tx.parkingClosure.findFirst({where:{zoneId,startsAt:end?{lt:end}:{lte:start},endsAt:{gt:start}},select:{id:true}});
  assert(!closure,'PARKING_CLOSED','This parking location is closed during the requested time',409);
 }
-export async function start(userId:string,input:Start,key:string){return idempotent(userId,'start',key,input,async tx=>{
+export async function start(userId:string,input:Start,key:string){return idempotent(userId,'start',key,input,tx=>startInTransaction(tx,userId,input));}
+// The gate must commit its physical visit and the fully validated session together.
+export async function startInTransaction(tx:Tx,userId:string,input:Start){
  await lock(tx,`zone:${input.zoneId}`);
  await lock(tx,`vehicle:${input.vehicleId}`);await vehicleAccess(tx,userId,input.vehicleId);
  assert(!await tx.parkingSession.findFirst({where:{vehicleId:input.vehicleId,status:'ACTIVE'}}),'ACTIVE_SESSION_EXISTS','This vehicle already has an active parking session',409);
@@ -35,7 +37,7 @@ export async function start(userId:string,input:Start,key:string){return idempot
  if(endsAt){const t=await post(tx,userId,{amount:-amount,type:'parking_payment',title:'Prepaid parking',titleAr:'وقوف مسبق الدفع',subtitle:zone.name,subtitleAr:zone.nameAr,parkingSessionId:s.id});s.paymentTransactionId=t.id;await tx.parkingSession.update({where:{id:s.id},data:{paymentTransactionId:t.id}});}
  await notify(tx,userId,'parking_started','Parking started','بدأ الوقوف',zone.name,zone.nameAr,`/parking/active/${s.id}`,`start:${s.id}`);
  await event(tx,'parking.session.updated',{id:s.id},userId);return s;
- });}
+}
 async function chargeStopped(tx:Tx,s:ParkingSession,cost:number){await lock(tx,`wallet:${s.userId}`);const wallet=requireValue(await tx.wallet.findUnique({where:{userId:s.userId}}));const paid=wallet.balance>=cost;
  const t=await post(tx,s.userId,{amount:-cost,type:'parking_payment',status:paid?'completed':'failed',title:'Parking',titleAr:'وقوف',parkingSessionId:s.id,failureReason:paid?undefined:'insufficient_funds'});
  if(!paid)await tx.sessionDebt.upsert({where:{sessionId:s.id},create:{sessionId:s.id,amount:cost},update:{amount:cost}});
@@ -77,6 +79,9 @@ export async function expireSessions(now=new Date()){
  const rows=await db.parkingSession.findMany({where:{status:'ACTIVE',parkingMode:'prepaid',endsAt:{lte:now}},take:500});
  for(const row of rows)await atomic(async tx=>{await lock(tx,`session:${row.id}`);const s=await tx.parkingSession.findUniqueOrThrow({where:{id:row.id}});if(s.status!=='ACTIVE'||!s.endsAt||s.endsAt>now)return;
  await tx.parkingSession.update({where:{id:s.id},data:{status:'EXPIRED',stoppedAt:s.endsAt,finalCost:s.currentCost}});
- await notify(tx,s.userId,'parking_expiring','Prepaid parking ended','انتهى الوقوف مسبق الدفع','Your prepaid period has ended.','انتهت مدة الوقوف مسبق الدفع.',`/parking/receipt/${s.id}`,`expired:${s.id}`);await event(tx,'parking.session.updated',{id:s.id},s.userId);});
- const soon=await db.parkingSession.findMany({where:{status:'ACTIVE',parkingMode:'prepaid',endsAt:{gt:now,lte:new Date(now.getTime()+600000)}},take:500});for(const s of soon)await atomic(tx=>notify(tx,s.userId,'parking_reminder','Parking expires soon','ينتهي الوقوف قريبًا','Check your parking time.','تحقق من مدة الوقوف.',`/parking/active/${s.id}`,`reminder:${s.id}:${s.endsAt!.toISOString()}`));
+ await notify(tx,s.userId,'parking_expiring','Prepaid parking ended','انتهى الوقوف المدفوع مسبقاً','Your prepaid period has ended.','انتهت المدة المدفوعة مسبقاً.',`/parking/receipt/${s.id}`,`expired:${s.id}`);await event(tx,'parking.session.updated',{id:s.id},s.userId);});
+ // Two warnings before paid time runs out, each with a way to extend, so overstay charges are never a surprise.
+ for(const minutes of [15,5]){const soon=await db.parkingSession.findMany({where:{status:'ACTIVE',parkingMode:'prepaid',endsAt:{gt:now,lte:new Date(now.getTime()+minutes*60000)}},take:500});
+ // A 15-minute session would otherwise get its 15-minute warning the moment it starts.
+ for(const s of soon.filter(x=>x.endsAt!.getTime()-x.startedAt.getTime()>(minutes+5)*60000))await atomic(tx=>notify(tx,s.userId,'parking_reminder',`Parking ends in ${minutes} minutes`,`ينتهي الوقوف خلال ${minutes} دقائق`,'Extend now to avoid an overstay violation.','مدّد الآن لتجنب مخالفة تجاوز الوقت.',`/parking/active/${s.id}`,`reminder:${s.id}:${s.endsAt!.toISOString()}:${minutes}`));}
 }

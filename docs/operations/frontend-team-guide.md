@@ -9,7 +9,7 @@ caches.
 
 | Location | Owner and purpose |
 | --- | --- |
-| `apps/customer` | Customer team: onboarding, map, parking, reservations, vehicles, wallet, activity, profile, roads, notifications and violations; native and web bootstrap |
+| `apps/customer` | Customer team: onboarding, map, parking, reservations, vehicles, wallet, activity, profile, roads, notifications, violations, rides, hosted spots and role-authorized gate/patrol tools; native and web bootstrap |
 | `apps/management` | Portal team: administrator and operator routes, parking and organization editors, staff controls, responsive shell and staff login |
 | `packages/contracts` | Shared domain types, request/response interfaces and appearance schemas; coordinate changes with both frontend teams and the API team |
 | `packages/design` | Shared design tokens and assets; review visual impact in both applications |
@@ -39,7 +39,9 @@ Run these commands from the repository root in separate terminals:
 | `npm run android` / `npm run ios` | Customer native development |
 
 Keep the existing database, Redis and storage setup. The frontend split does not
-require a new database or new schema. Both local frontend origins must be allowed
+require a new database. New feature migrations are additive and shared by both apps;
+apply them with `prisma migrate deploy` before starting updated services.
+Both local frontend origins must be allowed
 by backend HTTP and socket CORS.
 
 The customer app retains its phone-sized web layout. The staff portal uses a

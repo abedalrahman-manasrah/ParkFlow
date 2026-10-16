@@ -17,3 +17,13 @@ export function isValidPlate(input: string): boolean {
   const digits = normalizePlate(input);
   return digits.length >= 6 && digits.length <= 8;
 }
+
+/**
+ * A vehicle saved without a nickname falls back to its plate as its name. Screens
+ * that already show the plate badge use this to show the vehicle type instead of
+ * the same number twice.
+ */
+export function isPlateOnlyName(displayName: string, plateNumber: string): boolean {
+  const digits = normalizePlate(plateNumber);
+  return digits.length > 0 && displayName.replace(/\D/g, '') === digits && !/\p{L}/u.test(displayName);
+}

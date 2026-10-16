@@ -29,6 +29,11 @@ providers or operator processes before public use.
 - Explicit demo and live inventory, reservation quotes calculated by the server,
   availability freshness checks, cancellation and recovery flows, tariff
   snapshots, and idempotent wallet operations.
+- Shared rides, hosted private parking, QR gate passes, gate operations, patrol
+  checks and permit-aware overstay handling with organization-scoped permissions.
+- Traffic-aware route comparisons, destination parking, trip needs, tourism, car
+  services, accessible parking, dashboard warning checks, rewards, voice alerts
+  and opt-in crash detection. External integrations require their own settings.
 - Current location, parking layouts and forecasts, navigation, offline queues
   for road reports and feedback, and Arabic and English translations.
 
@@ -87,6 +92,27 @@ Requirements: Node.js, npm, and Docker Desktop with its Linux engine running.
 
 See the [frontend team ownership guide](docs/operations/frontend-team-guide.md)
 for working independently and coordinating shared API/design changes.
+
+## Team feature data and native modules
+
+Existing databases require `prisma migrate deploy`, never a reset or a database
+backup import. The optional public car-service catalogue can be imported from
+`server` with `npx tsx prisma/importCarServices.ts ../ramallah_car_services.json`.
+The tourism client retains the supplied source datasets. Run imports only when
+you intend to add/update that catalogue; do not rerun the general seed to update
+an existing deployment.
+
+Sharing demo fixtures are disabled by default. An isolated development database
+may explicitly select `SEED_SHARING_DEMO=true`; demo camera provisioning additionally
+requires a private `SEED_GATE_DEVICE_KEY` of at least 32 characters. Never use
+shared demo credentials in a deployment. Previously seeded public camera keys
+need separate operator revocation.
+
+The customer workspace discovers the Android module in `modules/crash-detection`
+through its `expo.autolinking.nativeModulesDir` setting. Background crash detection
+requires an Android development/production build and device permissions; Expo Go
+and a JavaScript bundle export do not verify the native background service.
+See [crash detection](docs/crash-detection.md).
 
 ## Registration and sign-in
 

@@ -33,7 +33,14 @@ export type TransactionType =
   | 'parking_payment'
   | 'violation_payment'
   | 'refund'
-  | 'adjustment';
+  | 'adjustment'
+  /** Verified ParkFlow points paid into the wallet. */
+  | 'reward'
+  /** Seat held for a shared ride, or a private parking booking. */
+  | 'ride_payment'
+  | 'spot_payment'
+  /** Paid out to drivers and hosts after a ride or booking ends. */
+  | 'earning';
 
 export type TransactionStatus = 'pending' | 'completed' | 'failed' | 'reversed';
 

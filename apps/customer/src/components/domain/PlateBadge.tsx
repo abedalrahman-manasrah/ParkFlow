@@ -1,6 +1,7 @@
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { AppText } from '@parkflow/client/components/ui/AppText';
 import { useTheme } from '@parkflow/client/theme/ThemeProvider';
+import { useLocale } from '@parkflow/client/hooks/useLocale';
 import { radius } from '@parkflow/design/radius';
 import { spacing } from '@parkflow/design/spacing';
 
@@ -20,6 +21,7 @@ export interface PlateBadgeProps {
  */
 export function PlateBadge({ plateNumber, size = 'md', tone = 'default', style }: PlateBadgeProps) {
   const { colors } = useTheme();
+  const { row } = useLocale();
 
   const metrics = {
     sm: { height: 22, font: 'caption' as const, padding: spacing.sm, strip: 4 },
@@ -31,37 +33,39 @@ export function PlateBadge({ plateNumber, size = 'md', tone = 'default', style }
   const border = tone === 'onDeep' ? 'rgba(255,255,255,0.22)' : colors.border;
   const text = tone === 'onDeep' ? colors.onDeep : colors.text;
 
+  // Same wrapper as StatusBadge: hug the reading-start edge without stretching.
   return (
-    <View
-      accessibilityLabel={`Plate ${plateNumber}`}
-      style={[
-        {
-          flexDirection: 'row',
-          alignItems: 'center',
-          height: metrics.height,
-          borderRadius: radius.xs,
-          borderWidth: 1,
-          borderColor: border,
-          backgroundColor: background,
-          overflow: 'hidden',
-          alignSelf: 'flex-start',
-        },
-        style,
-      ]}
-    >
-      <View style={{ width: metrics.strip, height: '100%', backgroundColor: colors.brand }} />
-      <AppText
-        variant={metrics.font}
-        numeric
-        forceLtrAlign
-        style={{
-          color: text,
-          paddingHorizontal: metrics.padding,
-          letterSpacing: size === 'lg' ? 1.6 : 1,
-        }}
+    <View style={{ flexDirection: row, alignItems: 'center' }}>
+      <View
+        accessibilityLabel={`Plate ${plateNumber}`}
+        style={[
+          {
+            flexDirection: 'row',
+            alignItems: 'center',
+            height: metrics.height,
+            borderRadius: radius.xs,
+            borderWidth: 1,
+            borderColor: border,
+            backgroundColor: background,
+            overflow: 'hidden',
+          },
+          style,
+        ]}
       >
-        {plateNumber}
-      </AppText>
+        <View style={{ width: metrics.strip, height: '100%', backgroundColor: colors.brand }} />
+        <AppText
+          variant={metrics.font}
+          numeric
+          forceLtrAlign
+          style={{
+            color: text,
+            paddingHorizontal: metrics.padding,
+            letterSpacing: size === 'lg' ? 1.6 : 1,
+          }}
+        >
+          {plateNumber}
+        </AppText>
+      </View>
     </View>
   );
 }

@@ -1,3 +1,4 @@
+import type { AppNotification } from './notification';
 import type { GeoPoint, ID, ISODateString } from './common';
 import type { AvailabilityLevel } from './parking';
 
@@ -54,7 +55,7 @@ export interface CrowdAvailability {
   minutesSinceReport: number;
 }
 
-export type PointsReason = 'zone_report' | 'road_report';
+export type PointsReason = 'zone_report' | 'road_report' | 'incident_report';
 
 export interface PointsEntry {
   id: ID;
@@ -69,6 +70,9 @@ export interface PointsEntry {
   refId: ID;
   createdAt: ISODateString;
 }
+
+/** Points just earned, with the notification announcing them (null when none was sent). */
+export type AwardedPoints = PointsEntry & { notification?: AppNotification | null };
 
 export type TrustTier = 'bronze' | 'silver' | 'gold' | 'platinum';
 
@@ -94,6 +98,15 @@ export interface TrustSummary {
   pendingPoints: number;
   factors: TrustFactor[];
   recent: PointsEntry[];
+  /** How points turn into wallet money. Absent from the offline mock. */
+  rewards?: {
+    /** Wallet credit per verified point, in minor units. */
+    perPointMinor: number;
+    /** Points for each new map incident report, whatever its type. */
+    incidentReportPoints: number;
+    /** Everything paid out so far, in minor units. */
+    earnedMinor: number;
+  };
 }
 
 export interface Landmark {
@@ -116,6 +129,9 @@ export interface RouteResult {
   coordinates: GeoPoint[];
   distanceMeters: number;
   durationSeconds: number;
+  /** Optional provider traffic flow, kept separate from ParkFlow Road Reports. */
+  trafficSegments?: RouteTrafficSegment[];
+  trafficSummary?: RouteTrafficSummary;
   /** Delay added for closures the chosen route still passes (0 when it avoids them all). */
   penaltySeconds: number;
   closuresOnRoute: RouteClosure[];
@@ -133,4 +149,22 @@ export interface RouteAlternative {
   coordinates: GeoPoint[];
   distanceMeters: number;
   durationSeconds: number;
+}
+
+export type RouteTrafficState = 'normal' | 'slow' | 'traffic_jam';
+
+export interface RouteTrafficSegment {
+  state: RouteTrafficState;
+  coordinates: GeoPoint[];
+}
+
+export interface RouteTrafficSummary {
+  provider: 'google-routes';
+  level: 'light' | 'moderate' | 'heavy';
+  state: RouteTrafficState;
+  durationSeconds?: number;
+  staticDurationSeconds?: number;
+  delaySeconds?: number;
+  delayPercent?: number;
+  intervalCounts: Record<RouteTrafficState, number>;
 }

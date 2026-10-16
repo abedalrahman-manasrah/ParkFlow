@@ -14,6 +14,7 @@ import { spacing } from '@parkflow/design/spacing';
 import { radius } from '@parkflow/design/radius';
 import { useLocale } from '@parkflow/client/hooks/useLocale';
 import type { UserVehicleView, VehicleType } from '@parkflow/contracts';
+import { isPlateOnlyName } from '@parkflow/client/utils/plate';
 
 const TYPE_ICONS: Record<VehicleType, typeof Car> = {
   private: Car,
@@ -95,7 +96,9 @@ export function VehicleSelectorSheet({
                 <View style={{ flex: 1, gap: 5 }}>
                   <View style={{ flexDirection: row, alignItems: 'center', gap: spacing.sm }}>
                     <AppText variant="titleLg" numberOfLines={1} style={{ flexShrink: 1 }}>
-                      {vehicle.displayName}
+                      {isPlateOnlyName(vehicle.displayName, vehicle.plateNumber)
+                        ? t(`vehicle.type.${vehicle.type}`)
+                        : vehicle.displayName}
                     </AppText>
                     {vehicle.isDefault ? (
                       <StatusBadge label={t('common.default')} tone="neutral" size="sm" showDot={false} />

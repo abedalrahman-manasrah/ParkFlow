@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import {
+  Accessibility,
   Navigation,
   Clock,
   Timer,
@@ -344,6 +345,28 @@ export function ZoneSheet({
                 : t('zone.closedNow')}
             </AppText>
           </View>
+
+          {zone.accessibleSpots ? (
+            <View
+              style={{
+                flexDirection: row,
+                alignItems: 'center',
+                gap: spacing.md,
+                paddingVertical: spacing.md,
+                paddingHorizontal: spacing.lg,
+                borderRadius: radius.md,
+                backgroundColor: colors.infoSoft,
+              }}
+            >
+              <Accessibility size={16} color={colors.info} strokeWidth={2.2} />
+              <AppText variant="caption" color="infoText" style={{ flex: 1 }}>
+                {t('zone.accessibleShort')}
+              </AppText>
+              <AppText variant="title" numeric color="infoText">
+                {zone.accessibleSpots}
+              </AppText>
+            </View>
+          ) : null}
         </View>
 
         {/* One-tap driver report — feeds the crowd availability everyone sees. */}

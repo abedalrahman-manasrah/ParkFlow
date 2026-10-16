@@ -38,25 +38,29 @@ export function StatusBadge({
 
   const { bg, fg, dot } = palette[tone];
 
+  // The wrapper hugs the reading-start edge inside a column and simply sizes
+  // to the pill inside a row, so the badge never stretches or drifts.
   return (
-    <View
-      accessibilityRole="text"
-      accessibilityLabel={label}
-      style={[
-        styles.base,
-        {
-          backgroundColor: bg,
-          flexDirection: row,
-          paddingVertical: size === 'sm' ? 3 : 5,
-          paddingHorizontal: size === 'sm' ? spacing.sm : spacing.md,
-        },
-        style,
-      ]}
-    >
-      {showDot ? <View style={[styles.dot, { backgroundColor: dot }]} /> : null}
-      <AppText variant={size === 'sm' ? 'caption' : 'label'} style={{ color: fg }} numberOfLines={1}>
-        {label}
-      </AppText>
+    <View style={{ flexDirection: row, alignItems: 'center' }}>
+      <View
+        accessibilityRole="text"
+        accessibilityLabel={label}
+        style={[
+          styles.base,
+          {
+            backgroundColor: bg,
+            flexDirection: row,
+            paddingVertical: size === 'sm' ? 3 : 5,
+            paddingHorizontal: size === 'sm' ? spacing.sm : spacing.md,
+          },
+          style,
+        ]}
+      >
+        {showDot ? <View style={[styles.dot, { backgroundColor: dot }]} /> : null}
+        <AppText variant={size === 'sm' ? 'caption' : 'label'} style={{ color: fg }} numberOfLines={1}>
+          {label}
+        </AppText>
+      </View>
     </View>
   );
 }
@@ -64,7 +68,6 @@ export function StatusBadge({
 const styles = StyleSheet.create({
   base: {
     alignItems: 'center',
-    alignSelf: 'flex-start',
     borderRadius: radius.pill,
     gap: spacing.xs + 2,
   },

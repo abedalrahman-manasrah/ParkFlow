@@ -10,7 +10,7 @@ let harness;
 
 function managementHarness() {
   const calls = [], routes = [], persisted = new Map(), services = {};
-  const ui = Object.fromEntries(['AppButton', 'AppHeader', 'AppText', 'InlineNotice', 'Reveal', 'Screen', 'TextField'].map(name => [name, props => React.createElement(name, props, props.children)]));
+  const ui = Object.fromEntries(['AppButton', 'AppHeader', 'AppText', 'OnboardingStepper', 'InlineNotice', 'Reveal', 'Screen', 'TextField'].map(name => [name, props => React.createElement(name, props, props.children)]));
   const load = createClientLoader({ application: 'management', stubs: {
     'react-native': { View: props => React.createElement('View', props, props.children) },
     'expo-router': {

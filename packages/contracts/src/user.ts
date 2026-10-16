@@ -7,6 +7,8 @@ export interface User {
   countryCode?: string | null;
   email?: string | null;
   avatarUrl?: string;
+  /** Self-declared; only used to offer or join women-only rides. */
+  gender?: 'female' | 'male' | null;
   /** The full ID is never returned by the server. */
   nationalIdMasked?: string | null;
   phoneVerifiedAt?: ISODateString | null;

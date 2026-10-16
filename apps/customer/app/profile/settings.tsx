@@ -1,17 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@parkflow/client/services/http/apiClient';
 import { useUserId } from '@parkflow/client/hooks/useSession';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { Check, Languages, Moon, Sun, SunMoon } from 'lucide-react-native';
 
 import {
+  AppButton,
   AppHeader,
   AppText,
   Card,
   Divider,
+  InlineNotice,
   PressableScale,
   Screen,
   SectionHeader,
+  Segmented,
   SwitchRow,
 } from '@parkflow/client/components/ui';
 
@@ -22,7 +25,12 @@ import { useLocale } from '@parkflow/client/hooks/useLocale';
 import { usePreferencesStore, type ThemeMode } from '@parkflow/client/store/preferencesStore';
 import { LOCALES, localeNames, type Locale } from '@parkflow/client/i18n';
 import type { NotificationPreferences } from '@parkflow/contracts';
+import { errorMessage } from '@parkflow/client/utils/errors';
 import { haptics } from '@parkflow/client/utils/haptics';
+import { ensureCallPermission } from '@parkflow/client/utils/emergencyCall';
+import { useEmergencyConfig } from '@parkflow/client/hooks/useCrashDetection';
+import { useCrashAlertStore } from '@parkflow/client/store/crashAlertStore';
+import { nativeCrashDetection } from '@parkflow/client/utils/crashDetectionNative';
 
 const THEME_ICONS: Record<ThemeMode, typeof Sun> = {
   light: Sun,
@@ -48,6 +56,31 @@ export default function SettingsScreen() {
   const notifications = preferenceQuery.data ?? {parkingReminders:true,expiryWarnings:true,lowBalance:true,violations:true,promotions:false};
   const updatePreferences = useMutation({mutationFn:(next:NotificationPreferences)=>api<NotificationPreferences>('/users/me/notification-preferences',{method:'PATCH',body:next}),onSuccess:data=>queryClient.setQueryData(['notification-preferences',userId],data)});
   const setNotificationPreference = (key:keyof NotificationPreferences,value:boolean) => updatePreferences.mutate({...notifications,[key]:value});
+  const voiceAlerts = usePreferencesStore((s) => s.voiceAlerts);
+  const setVoiceAlerts = usePreferencesStore((s) => s.setVoiceAlerts);
+  const voiceLanguage = usePreferencesStore((s) => s.voiceLanguage);
+  const setVoiceLanguage = usePreferencesStore((s) => s.setVoiceLanguage);
+  const crashDetection = usePreferencesStore((s) => s.crashDetection);
+  const setCrashDetection = usePreferencesStore((s) => s.setCrashDetection);
+  const { data: emergencyConfig } = useEmergencyConfig();
+  const raiseCrashAlert = useCrashAlertStore((s) => s.raise);
+
+  // On Android builds the background service owns the alert; elsewhere the in-app countdown does.
+  const simulateCrash = () => {
+    if (!userId) return;
+    if (nativeCrashDetection?.simulate()) return;
+    raiseCrashAlert({
+      userId,
+      detection: { impactAt: Date.now(), peakG: 0, rotationDeg: 0, speedKmh: 0, reason: 'rollover' },
+      detectedAt: new Date().toISOString(),
+    });
+  };
+
+  const toggleCrashDetection = (enabled: boolean) => {
+    setCrashDetection(enabled);
+    // Asking now means the call can go through on its own later, when the driver may not be able to tap.
+    if (enabled) void ensureCallPermission();
+  };
 
   const themeOptions: ThemeMode[] = ['light', 'dark', 'system'];
 
@@ -143,22 +176,91 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* ---- Notifications ---------------------------------------------- */}
+        {/* ---- Voice --------------------------------------------------------- */}
         <View>
-          <SectionHeader title={t('profile.notifications')} />
-          <Card padding="lg" style={{ gap: spacing.xs }}>
-            {PREF_KEYS.map((key, index) => (
-              <View key={key}>
-                {index > 0 ? <Divider style={{ marginVertical: spacing.xs }} /> : null}
-                <SwitchRow
-                  label={t(`profile.prefs.${key}` as const)}
-                  value={notifications[key]}
-                  disabled={preferenceQuery.isPending || updatePreferences.isPending}
-                  onValueChange={(value) => setNotificationPreference(key, value)}
-                />
-              </View>
-            ))}
+          <SectionHeader title={t('profile.voiceAlerts')} />
+          <Card padding="lg">
+            <SwitchRow
+              label={t('profile.voiceAlerts')}
+              description={t('profile.voiceAlertsBody')}
+              value={voiceAlerts}
+              onValueChange={setVoiceAlerts}
+            />
+            <Divider style={{ marginVertical: spacing.md }} />
+            <AppText variant="label" color="textSecondary" style={{ marginBottom: spacing.sm }}>
+              {t('profile.voiceLanguage')}
+            </AppText>
+            <Segmented
+              options={[
+                { value: 'ar' as const, label: localeNames.ar },
+                { value: 'en' as const, label: localeNames.en },
+              ]}
+              value={voiceLanguage}
+              onChange={setVoiceLanguage}
+            />
           </Card>
+        </View>
+
+        {/* ---- Safety ------------------------------------------------------ */}
+        {Platform.OS !== 'web' ? (
+          <View>
+            <SectionHeader title={t('crash.section')} />
+            <Card padding="lg" style={{ gap: spacing.md }}>
+              <SwitchRow
+                label={t('crash.setting')}
+                description={t('crash.settingBody')}
+                value={crashDetection}
+                onValueChange={toggleCrashDetection}
+              />
+              {emergencyConfig && !emergencyConfig.enabled ? (
+                <AppText variant="caption" color="textTertiary">
+                  {t('crash.notConfigured')}
+                </AppText>
+              ) : null}
+              {__DEV__ ? (
+                <AppButton
+                  label={t('crash.test')}
+                  variant="secondary"
+                  size="sm"
+                  onPress={simulateCrash}
+                />
+              ) : null}
+            </Card>
+          </View>
+        ) : null}
+
+        {/* ---- Notifications ---------------------------------------------- */}
+        <View style={{ gap: spacing.sm }}>
+          <SectionHeader title={t('profile.notifications')} />
+          {preferenceQuery.isError ? (
+            <InlineNotice
+              tone="danger"
+              title={t('common.somethingWrong')}
+              body={errorMessage(preferenceQuery.error)}
+              action={{ label: t('common.retry'), onPress: () => void preferenceQuery.refetch() }}
+            />
+          ) : (
+            <Card padding="lg" style={{ gap: spacing.xs }}>
+              {PREF_KEYS.map((key, index) => (
+                <View key={key}>
+                  {index > 0 ? <Divider style={{ marginVertical: spacing.xs }} /> : null}
+                  <SwitchRow
+                    label={t(`profile.prefs.${key}` as const)}
+                    value={notifications[key]}
+                    disabled={preferenceQuery.isPending || updatePreferences.isPending}
+                    onValueChange={(value) => setNotificationPreference(key, value)}
+                  />
+                </View>
+              ))}
+            </Card>
+          )}
+          {updatePreferences.isError ? (
+            <InlineNotice
+              tone="danger"
+              title={t('common.somethingWrong')}
+              body={errorMessage(updatePreferences.error)}
+            />
+          ) : null}
         </View>
       </View>
     </Screen>

@@ -1,4 +1,5 @@
 import { View } from 'react-native';
+import { Gift } from 'lucide-react-native';
 
 import {
   AppHeader,
@@ -14,10 +15,12 @@ import {
 } from '@parkflow/client/components/ui';
 import { useTheme } from '@parkflow/client/theme/ThemeProvider';
 import { spacing } from '@parkflow/design/spacing';
+import { radius } from '@parkflow/design/radius';
 import { useLocale } from '@parkflow/client/hooks/useLocale';
 import { useTrust } from '@parkflow/client/hooks/useCommunity';
 import type { TrustTier } from '@parkflow/contracts';
 import { formatDateTime } from '@parkflow/client/utils/time';
+import { formatMoney } from '@parkflow/client/utils/money';
 
 const TIER_TONE = { bronze: 'warning', silver: 'neutral', gold: 'success', platinum: 'brand' } as const;
 const STATE_TONE = { pending: 'info', verified: 'success', revoked: 'neutral' } as const;
@@ -28,7 +31,7 @@ const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
 /** ParkFlow Points — the driver trust score, and the discount it buys. */
 export default function PointsScreen() {
   const { colors } = useTheme();
-  const { t, row, dateLocale } = useLocale();
+  const { t, row, alignEnd, dateLocale } = useLocale();
   const { data: trust, isPending, isError, error, refetch } = useTrust();
 
   const tierName = (tier: TrustTier) => t(`points.tier.${tier}` as const);
@@ -106,6 +109,37 @@ export default function PointsScreen() {
           ) : null}
         </Card>
 
+        {trust.rewards ? (
+          <Card tone="brand" padding="lg" style={{ flexDirection: row, alignItems: 'center', gap: spacing.md }}>
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: radius.md,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: colors.surface,
+              }}
+            >
+              <Gift size={22} color={colors.brand} strokeWidth={2.2} />
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <AppText variant="title">{t('points.rewards')}</AppText>
+              <AppText variant="bodySm" color="textSecondary">
+                {t('points.rewardsRate', { amount: formatMoney(trust.rewards.perPointMinor) })}
+              </AppText>
+            </View>
+            <View style={{ alignItems: alignEnd, gap: 2 }}>
+              <AppText variant="caption" color="textTertiary">
+                {t('points.rewardsEarned')}
+              </AppText>
+              <AppText variant="titleLg" color="successText" numeric>
+                {formatMoney(trust.rewards.earnedMinor)}
+              </AppText>
+            </View>
+          </Card>
+        ) : null}
+
         <View>
           <SectionHeader title={t('points.factors')} />
           <Card padding="lg" style={{ paddingVertical: spacing.xs }}>
@@ -140,6 +174,11 @@ export default function PointsScreen() {
                 • {t(key)}
               </AppText>
             ))}
+            {trust.rewards ? (
+              <AppText variant="bodySm" color="textSecondary">
+                • {t('points.earn.incident', { points: trust.rewards.incidentReportPoints })}
+              </AppText>
+            ) : null}
           </Card>
         </View>
 
@@ -154,7 +193,7 @@ export default function PointsScreen() {
                     title={t(`points.reason.${entry.reason}` as const)}
                     subtitle={formatDateTime(entry.createdAt, dateLocale)}
                     trailing={
-                      <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                      <View style={{ alignItems: alignEnd, gap: 4 }}>
                         <AppText variant="title" numeric>
                           +{entry.points}
                         </AppText>

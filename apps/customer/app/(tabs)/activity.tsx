@@ -12,12 +12,14 @@ import {
   Screen,
   Segmented,
   SkeletonGroup,
+  TabHeader,
 } from '@parkflow/client/components/ui';
 import { TransactionRow } from '../../src/components/domain/TransactionRow';
 import { useTheme } from '@parkflow/client/theme/ThemeProvider';
 import { spacing, screenPadding } from '@parkflow/design/spacing';
 import { useLocale } from '@parkflow/client/hooks/useLocale';
 import { useTransactions } from '@parkflow/client/hooks/useWallet';
+import type { TranslationKey } from '@parkflow/client/i18n';
 import type { Transaction, TransactionType } from '@parkflow/contracts';
 import { formatDayHeading } from '@parkflow/client/utils/time';
 
@@ -26,7 +28,7 @@ type Filter = 'all' | 'parking' | 'payments' | 'violations';
 const FILTER_TYPES: Record<Filter, TransactionType[] | undefined> = {
   all: undefined,
   parking: ['parking_payment'],
-  payments: ['topup', 'refund', 'adjustment'],
+  payments: ['topup', 'refund', 'adjustment', 'reward', 'ride_payment', 'spot_payment', 'earning'],
   violations: ['violation_payment'],
 };
 
@@ -65,6 +67,13 @@ export default function ActivityScreen() {
       }));
   }, [transactions, t, dateLocale]);
 
+  const emptyBodyKeys: Record<Filter, TranslationKey> = {
+    all: 'activity.emptyBody',
+    parking: 'activity.emptyBodyParking',
+    payments: 'activity.emptyBodyPayments',
+    violations: 'activity.emptyBodyViolations',
+  };
+
   const options = [
     { value: 'all' as const, label: t('activity.all') },
     { value: 'parking' as const, label: t('activity.parking') },
@@ -74,9 +83,9 @@ export default function ActivityScreen() {
 
   return (
     <Screen layout="fixed" edgeToEdge safeBottom={false}>
-      <View style={{ paddingHorizontal: screenPadding, paddingTop: spacing.md, gap: spacing.lg, paddingBottom: spacing.md }}>
-        <AppText variant="h1">{t('activity.title')}</AppText>
-        <Segmented options={options} value={filter} onChange={setFilter} />
+      <View style={{ paddingHorizontal: screenPadding, paddingTop: spacing.md, gap: spacing.lg, paddingBottom: spacing.sm }}>
+        <TabHeader title={t('activity.title')} />
+        <Segmented variant="inset" options={options} value={filter} onChange={setFilter} />
       </View>
 
       {isPending ? (
@@ -122,7 +131,7 @@ export default function ActivityScreen() {
             <EmptyState
               icon={<Receipt size={28} color={colors.brand} strokeWidth={2} />}
               title={t('activity.empty')}
-              body={t('activity.emptyBody')}
+              body={t(emptyBodyKeys[filter])}
             />
           }
         />

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { RefreshControl, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Car, Plus } from 'lucide-react-native';
+import { Car, Plus, ShieldAlert } from 'lucide-react-native';
 
 import {
   AppButton,
@@ -12,6 +12,7 @@ import {
   Screen,
   SkeletonGroup,
   OfflineStaleNotice,
+  TabHeader,
 } from '@parkflow/client/components/ui';
 import { VehicleCard } from '../../src/components/domain/VehicleCard';
 import { useTheme } from '@parkflow/client/theme/ThemeProvider';
@@ -48,9 +49,21 @@ export default function VehiclesScreen() {
 
   return (
     <Screen layout="fixed" safeBottom={false}>
-      <View style={{ paddingBottom: spacing.md }}>
-        <AppText variant="h1">{t('vehicle.myVehicles')}</AppText>
-      </View>
+      <TabHeader
+        title={t('vehicle.myVehicles')}
+        style={{ marginBottom: spacing.lg }}
+        trailing={
+          <AppButton
+            label={t('warning.entry')}
+            size="sm"
+            variant="secondary"
+            fullWidth={false}
+            style={{ alignSelf: 'center' }}
+            icon={<ShieldAlert size={16} color={colors.text} strokeWidth={2.2} />}
+            onPress={() => router.push('/vehicles/warning-check')}
+          />
+        }
+      />
       <OfflineStaleNotice cacheKey="vehicles" />
 
       {isPending ? (

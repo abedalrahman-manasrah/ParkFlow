@@ -1,7 +1,14 @@
 import { create } from 'zustand';
 import type { AuthSession, User } from '@parkflow/contracts';
 import { secureStorage, STORAGE_KEYS } from '../services/storage';
-import { bindingOf, bootstrapBrowserSession, clearLogoutFence, isWebSession, markBrowserLogout, readBrowserBinding, sameBrowserLogin, saveBrowserBinding, validateWebSession, webSessionsEnabled, withBrowserAuthLock } from '../services/http/browserSession';
+import { useInAppNotificationStore } from './inAppNotificationStore';
+import { useCrashAlertStore } from './crashAlertStore';
+import { bindingOf, bootstrapBrowserSession, browserLogout, clearLogoutFence, isWebSession, markBrowserLogout, readBrowserBinding, sameBrowserLogin, saveBrowserBinding, validateWebSession, webSessionsEnabled, withBrowserAuthLock } from '../services/http/browserSession';
+
+function setFeatureOwner(userId?: string) {
+  useInAppNotificationStore.getState().setOwner(userId);
+  useCrashAlertStore.getState().setOwner(userId);
+}
 
 /**
  * Native credentials live in SecureStore. Browser credentials live only in
@@ -60,6 +67,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
   hydrate: async () => {
     let parsed: PersistedAuth | undefined;
     const epoch = authenticationEpoch;
+    const resetOnBoot = typeof __DEV__ !== 'undefined' && __DEV__ && process.env.EXPO_PUBLIC_START_FROM_BEGINNING === 'true';
     if (webSessionsEnabled) {
       try {
         await withBrowserAuthLock(async () => {
@@ -69,6 +77,15 @@ export const useAuthStore = create<AuthState>()((set) => ({
           const verified = await bootstrapBrowserSession();
           if (epoch !== authenticationEpoch) return;
           if (verified) {
+            if (resetOnBoot) {
+              // The development reset must revoke the cookie login as well as
+              // discard local state; it never revives browser JWT storage.
+              await markBrowserLogout(verified.session);
+              await browserLogout(verified.session);
+              await clearLogoutFence(verified.session);
+              setFeatureOwner(undefined);
+              return;
+            }
             // Preserve the car marker only after the server proves the same
             // previously published login. A cache alone never authorizes it.
             if (sameBrowserLogin(remembered, bindingOf(verified.session))) restoredWebSessions.add(verified.session);
@@ -87,7 +104,17 @@ export const useAuthStore = create<AuthState>()((set) => ({
           const raw = await secureStorage.getItem(STORAGE_KEYS.authSession);
           if (epoch !== authenticationEpoch || !raw) return;
           parsed = JSON.parse(raw) as PersistedAuth;
+          if (resetOnBoot) {
+            const { clearCrashEventsForUser } = await import('../services/crashEvents');
+            if (parsed.user?.id) await clearCrashEventsForUser(parsed.user.id);
+            await secureStorage.removeItem(STORAGE_KEYS.authSession);
+            parsed = undefined;
+            setFeatureOwner(undefined);
+            set({ session: undefined, user: undefined });
+            return;
+          }
           // A stored user is a rendering cache; the backend refreshes identity and authorizes every request.
+          setFeatureOwner(parsed.user.id);
           set({ session: parsed.session, user: parsed.user });
         } catch {
           await secureStorage.removeItem(STORAGE_KEYS.authSession).catch(() => undefined);
@@ -130,6 +157,18 @@ export const useAuthStore = create<AuthState>()((set) => ({
       try {
         if (!current()) throw cancelledVerification();
         const previousUser = useAuthStore.getState().user;
+        if (previousUser?.id && previousUser.id !== user.id) {
+          setFeatureOwner(undefined);
+          const { clearCrashEventsForUser } = await import('../services/crashEvents');
+          await clearCrashEventsForUser(previousUser.id);
+          const [{ useCarServicesStore }, { useTourismPlacesStore }, { useWarningServiceNavigationStore }] = await Promise.all([
+            import('./carServicesStore'), import('./tourismPlacesStore'), import('./warningServiceNavigationStore'),
+          ]);
+          useCarServicesStore.getState().setCategory(useCarServicesStore.getState().category ?? 'car_wash');
+          useTourismPlacesStore.getState().setCategories(useTourismPlacesStore.getState().categories);
+          useWarningServiceNavigationStore.getState().clear();
+          if (!current()) throw cancelledVerification();
+        }
         if (previousUser?.id !== user.id && !(restoringSameWebLogin && !previousUser)) {
           const { clearReservationRouteForAccountChange } = await import('./reservationRouteStore');
           finishRouteChange = await clearReservationRouteForAccountChange();
@@ -146,6 +185,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
           }
           throw cancelledVerification();
         }
+        setFeatureOwner(user.id);
         set({ session, user });
       } finally {
         finishRouteChange?.();
@@ -167,6 +207,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
 
   signOut: async (serverLogoutCompleted = false) => {
     ++authenticationEpoch;
+    setFeatureOwner(undefined);
     const previousUserId = useAuthStore.getState().user?.id;
     const previousSession = useAuthStore.getState().session;
     await persistInOrder(async () => {
@@ -179,6 +220,14 @@ export const useAuthStore = create<AuthState>()((set) => ({
         const { clearReservationRouteForAccountChange } = await import('./reservationRouteStore');
         finishRouteChange = await clearReservationRouteForAccountChange();
         if (previousUserId) {
+          const { clearCrashEventsForUser } = await import('../services/crashEvents');
+          await clearCrashEventsForUser(previousUserId);
+          const [{ useCarServicesStore }, { useTourismPlacesStore }, { useWarningServiceNavigationStore }] = await Promise.all([
+            import('./carServicesStore'), import('./tourismPlacesStore'), import('./warningServiceNavigationStore'),
+          ]);
+          useCarServicesStore.getState().setCategory(useCarServicesStore.getState().category ?? 'car_wash');
+          useTourismPlacesStore.getState().setCategories(useTourismPlacesStore.getState().categories);
+          useWarningServiceNavigationStore.getState().clear();
           const { retryQueue } = await import('../offline/retryQueue');
           await retryQueue.clearUser(previousUserId);
         }

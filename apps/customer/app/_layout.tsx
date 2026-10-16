@@ -23,6 +23,9 @@ import { useAppConfigStore } from '@parkflow/client/store/appConfigStore';
 import { authLanding } from '@parkflow/client/utils/authFlow';
 import { isAppError } from '@parkflow/client/utils/errors';
 import { WebAppShell } from '../src/components/layout/WebAppShell';
+import { NotificationBanner } from '../src/components/navigation/NotificationBanner';
+import { CrashCountdown } from '../src/components/navigation/CrashCountdown';
+import { useCrashDetection } from '@parkflow/client/hooks/useCrashDetection';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -84,6 +87,9 @@ function RootNavigator() {
       <Stack.Screen name="(onboarding)" options={{ animation: 'fade' }} />
       <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
       <Stack.Screen name="parking" />
+      <Stack.Screen name="rides" />
+      <Stack.Screen name="spots" />
+      <Stack.Screen name="gate" />
       <Stack.Screen name="vehicles" />
       <Stack.Screen name="wallet" />
       <Stack.Screen name="activity" />
@@ -105,6 +111,7 @@ function AppShell() {
     const timer = setInterval(refresh, 5 * 60 * 1000);
     return () => { subscription.remove(); clearInterval(timer); };
   }, []);
+  useCrashDetection();
   const { colors } = useTheme();
   const [fontsLoaded, fontError] = useFonts({
     PlusJakartaSans_400Regular,
@@ -116,6 +123,7 @@ function AppShell() {
 
   const hydrateAuth = useAuthStore((s) => s.hydrate);
   const authHydrated = useAuthStore((s) => s.hydrated);
+  const signedInUserId = useAuthStore((s) => s.session && s.user?.id);
   const prefsHydrated = usePreferencesStore((s) => s.hydrated);
   const [splashHidden, setSplashHidden] = useState(false);
 
@@ -149,7 +157,9 @@ function AppShell() {
 
   return (
     <WebAppShell>
-      {ready ? <RootNavigator /> : <View style={{ flex: 1, backgroundColor: colors.deep }} />}
+      {ready ? <RootNavigator key={signedInUserId || "signed-out"} /> : <View style={{ flex: 1, backgroundColor: colors.deep }} />}
+      {ready && signedInUserId ? <NotificationBanner /> : null}
+      {ready && signedInUserId ? <CrashCountdown /> : null}
     </WebAppShell>
   );
 }

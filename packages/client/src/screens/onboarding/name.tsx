@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { AppButton, AppHeader, AppText, Reveal, Screen, TextField } from '../../components/ui/index';
+import { AppButton, AppHeader, AppText, OnboardingStepper, Reveal, Screen, TextField } from '../../components/ui/index';
 import { spacing } from '@parkflow/design/spacing';
 import { useLocale } from '../../hooks/useLocale';
 import { usePhoneAuthStore } from '../../store/phoneAuthStore';
@@ -22,6 +22,7 @@ export default function NameScreen() {
   return (
     <Screen keyboardAvoiding>
       <AppHeader />
+      <OnboardingStepper current={0} />
       <Reveal style={{ gap: spacing.sm }}>
         <AppText variant="h1">{t('onboarding.nameTitle')}</AppText>
         <AppText variant="bodyLg" color="textSecondary">{t('onboarding.nameBeforeEmail')}</AppText>

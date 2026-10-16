@@ -18,7 +18,7 @@ const result = (overrides = {}) => ({
 function createHarness(application = 'customer') {
   const calls = [], routes = [], persisted = new Map(), services = {};
   const Focus = React.createContext(true);
-  const ui = Object.fromEntries(['AppButton', 'AppHeader', 'AppText', 'InlineNotice', 'Reveal', 'Screen', 'TextField', 'OtpInput', 'PressableScale'].map(name => [name, props => React.createElement(name, props, props.children)]));
+  const ui = Object.fromEntries(['AppButton', 'AppHeader', 'AppText', 'OnboardingStepper', 'InlineNotice', 'Reveal', 'Screen', 'TextField', 'OtpInput', 'PressableScale'].map(name => [name, props => React.createElement(name, props, props.children)]));
   const load = createClientLoader({ application, stubs: {
     'react-native': { View: props => React.createElement('View', props, props.children) },
     'expo-router': {

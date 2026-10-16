@@ -19,6 +19,7 @@ import {
   SkeletonGroup,
   StatusBadge,
   SwitchRow,
+  TabHeader,
 } from '@parkflow/client/components/ui';
 import { TransactionRow } from '../../src/components/domain/TransactionRow';
 import { useTheme } from '@parkflow/client/theme/ThemeProvider';
@@ -35,7 +36,7 @@ const QUICK_AMOUNTS = [2000, 5000, 10000];
 export default function WalletScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { t, row, isRTL } = useLocale();
+  const { t, row, isRTL, alignStart } = useLocale();
   const insets = useSafeAreaInsets();
 
   const { data: wallet, isPending, isError, error, refetch, isRefetching } = useWallet();
@@ -67,7 +68,7 @@ export default function WalletScreen() {
           paddingBottom: TAB_BAR_CLEARANCE + insets.bottom,
         }}
       >
-        <AppText variant="h1">{t('wallet.title')}</AppText>
+        <TabHeader title={t('wallet.title')} />
 
         {/* ---- Balance card -------------------------------------------- */}
         <View style={[{ borderRadius: radius.xxl, overflow: 'hidden' }, shadow.sm]}>
@@ -90,10 +91,10 @@ export default function WalletScreen() {
               >
                 <WalletIcon size={19} color={colors.accent} strokeWidth={2.2} />
               </View>
+              {/* Low balance is spelled out in the notice under the card. */}
               <AppText variant="label" color="onDeepMuted" style={{ flex: 1 }}>
                 {t('wallet.balance')}
               </AppText>
-              {isLow ? <StatusBadge label={t('parking.lowBalance')} tone="warning" size="sm" /> : null}
             </View>
 
             {isPending || !wallet ? (
@@ -224,7 +225,7 @@ export default function WalletScreen() {
               size="sm"
               onPress={() => router.push('/wallet/add-card')}
               icon={<Plus size={16} color={colors.brand} strokeWidth={2.4} />}
-              style={{ alignSelf: 'flex-start' }}
+              style={{ alignSelf: alignStart }}
               fullWidth={false}
             />
           </Card>

@@ -257,11 +257,14 @@ function mapFixture() {
   const ev = { stations: empty, select() {}, filters: {}, loading: false, retry() {} };
   const report = { reset() {}, mutate() {} };
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false } } });
-  const componentNames = ['MapSurface', 'MapTopBar', 'MapControlRail', 'NearbyParkingPanel', 'CompactRoutePanel', 'TestLocationControl', 'RoadReportLocationPanel', 'RoadReportCreationSheet', 'RoadReportDetailsSheet', 'MapLayersSheet', 'EvStationDetailsSheet', 'EvFiltersSheet', 'EvMapStatus'];
+  const componentNames = ['MapSurface', 'MapTopBar', 'MapControlRail', 'NearbyParkingPanel', 'CompactRoutePanel', 'TestLocationControl', 'RoadReportLocationPanel', 'RoadReportCreationSheet', 'RoadReportDetailsSheet', 'MapLayersSheet', 'EvStationDetailsSheet', 'EvFiltersSheet', 'EvMapStatus', 'CarServiceDetailsSheet', 'CarServiceMapStatus', 'TourismPlaceDetailsSheet', 'TourismPlaceMapStatus', 'DestinationSearchBox', 'DestinationParkingPanel'];
   const componentStubs = Object.fromEntries(componentNames.map(name => [`../../src/components/map/${name}`, { [name]: native(name) }]));
   for (const name of ['VehicleSelectorSheet', 'ZoneSheet', 'ActiveSessionBanner', 'ZoneCodeSheet']) componentStubs[`../../src/components/domain/${name}`] = { [name]: native(name) };
   const f = fixture({ extraStubs: {
     ...componentStubs,
+    // Keep the real map, GPS/auth hooks, route store and offline cache. Only
+    // presentation components are native boundaries in this Node renderer.
+    '@parkflow/client/components/ui': { Reveal: native('Reveal') },
     'react-native': { View: native('View'), Platform: { OS: 'android', select: values => values.android ?? values.default }, Linking: { openURL: async () => {} } },
     'expo-router': { useRouter: () => ({ push() {} }), useFocusEffect: callback => React.useEffect(() => { blurMap = callback(); return blurMap; }, [callback]) },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) },

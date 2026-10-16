@@ -120,15 +120,14 @@ export default function RoadAlertsScreen() {
                                 })}
                           </AppText>
                         </View>
-                        <StatusBadge
-                          label={
-                            checkpoint.assumed
-                              ? t('roads.assumed')
-                              : t(`roads.status.${checkpoint.status}` as const)
-                          }
-                          tone={checkpoint.assumed ? 'neutral' : STATUS_TONE[checkpoint.status]}
-                          size="sm"
-                        />
+                        {/* Unreported checkpoints already say so in the line above. */}
+                        {checkpoint.assumed ? null : (
+                          <StatusBadge
+                            label={t(`roads.status.${checkpoint.status}` as const)}
+                            tone={STATUS_TONE[checkpoint.status]}
+                            size="sm"
+                          />
+                        )}
                       </PressableScale>
 
                       {open ? (

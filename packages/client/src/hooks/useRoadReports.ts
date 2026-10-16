@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { services } from '../services/index';
+import { useInAppNotificationStore } from '../store/inAppNotificationStore';
 import type { CreateRoadReportInput, RoadReport, RoadReportBounds } from '@parkflow/contracts';
 import { queryKeys } from './queryKeys';
 import { cachedRead } from '../offline/storage';
@@ -30,6 +31,7 @@ export function useCreateRoadReport() {
       }
     },
     onSuccess: (result) => {
+      useInAppNotificationStore.getState().show(result.points?.notification);
       const report = result.report;
       queryClient.setQueryData(queryKeys.roadReport(report.id), report);
       queryClient.setQueriesData<RoadReport[]>({ queryKey: queryKeys.roadReportLists() }, (current) =>

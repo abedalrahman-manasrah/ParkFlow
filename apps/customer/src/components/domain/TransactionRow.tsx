@@ -2,6 +2,10 @@ import { View } from 'react-native';
 import {
   ArrowDownLeft,
   CircleParking,
+  Gift,
+  CarFront,
+  House,
+  HandCoins,
   RotateCcw,
   ScrollText,
   SlidersHorizontal,
@@ -21,6 +25,10 @@ const ICONS: Record<TransactionType, typeof CircleParking> = {
   violation_payment: ScrollText,
   refund: RotateCcw,
   adjustment: SlidersHorizontal,
+  reward: Gift,
+  ride_payment: CarFront,
+  spot_payment: House,
+  earning: HandCoins,
 };
 
 export interface TransactionRowProps {
@@ -30,7 +38,7 @@ export interface TransactionRowProps {
 
 export function TransactionRow({ transaction, onPress }: TransactionRowProps) {
   const { colors } = useTheme();
-  const { t, row, dateLocale, locale } = useLocale();
+  const { t, row, alignEnd, dateLocale, locale } = useLocale();
 
   const Icon = ICONS[transaction.type];
   const isCredit = transaction.amount > 0;
@@ -88,7 +96,7 @@ export function TransactionRow({ transaction, onPress }: TransactionRowProps) {
         </View>
       </View>
 
-      <View style={{ alignItems: 'flex-end', gap: 4 }}>
+      <View style={{ alignItems: alignEnd, gap: 4 }}>
         <MoneyText
           value={transaction.amount}
           signed

@@ -11,6 +11,8 @@ export type NotificationType =
   | 'payment_failed'
   | 'violation_issued'
   | 'appeal_updated'
+  | 'points_awarded'
+  | 'reward_paid'
   | 'system';
 
 export interface AppNotification {

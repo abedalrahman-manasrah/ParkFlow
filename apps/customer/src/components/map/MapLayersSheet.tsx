@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { BadgePercent, BatteryCharging, CircleParking, LifeBuoy, TriangleAlert, Wrench } from 'lucide-react-native';
+import { Accessibility, BadgePercent, BatteryCharging, CircleParking, Landmark, LifeBuoy, TriangleAlert, Wrench } from 'lucide-react-native';
 import { Switch, View } from 'react-native';
 import { AppButton, AppText, BottomSheet, PressableScale } from '@parkflow/client/components/ui';
 import { useLocale } from '@parkflow/client/hooks/useLocale';
@@ -9,9 +9,13 @@ import { radius } from '@parkflow/design/radius';
 import { spacing } from '@parkflow/design/spacing';
 import {
   BUSINESS_OFFERS_AVAILABLE,
+  CAR_SERVICE_CATEGORIES,
   MAP_LAYER_AVAILABILITY,
   PRIMARY_MAP_CATEGORIES,
+  TOURISM_PLACE_CATEGORIES,
+  type CarServiceCategory,
   type PrimaryMapCategory,
+  type TourismPlaceCategory,
 } from '@parkflow/contracts';
 
 const categoryIcon = (category: PrimaryMapCategory, color: string): ReactNode => {
@@ -20,6 +24,7 @@ const categoryIcon = (category: PrimaryMapCategory, color: string): ReactNode =>
     case 'parking': return <CircleParking {...props} />;
     case 'ev_charging': return <BatteryCharging {...props} />;
     case 'car_services': return <Wrench {...props} />;
+    case 'tourism_places': return <Landmark {...props} />;
     case 'roadside_help': return <LifeBuoy {...props} />;
   }
 };
@@ -30,9 +35,15 @@ export function MapLayersSheet({ visible, onClose }: { visible: boolean; onClose
   const primaryCategory = useMapLayersStore((state) => state.primaryCategory);
   const roadReportsEnabled = useMapLayersStore((state) => state.roadReportsEnabled);
   const businessOffersEnabled = useMapLayersStore((state) => state.businessOffersEnabled);
+  const accessibleParkingOnly = useMapLayersStore((state) => state.accessibleParkingOnly);
+  const carServiceCategory = useMapLayersStore((state) => state.carServiceCategory);
+  const tourismPlaceCategories = useMapLayersStore((state) => state.tourismPlaceCategories);
   const setPrimaryCategory = useMapLayersStore((state) => state.setPrimaryCategory);
   const setRoadReportsEnabled = useMapLayersStore((state) => state.setRoadReportsEnabled);
   const setBusinessOffersEnabled = useMapLayersStore((state) => state.setBusinessOffersEnabled);
+  const setAccessibleParkingOnly = useMapLayersStore((state) => state.setAccessibleParkingOnly);
+  const setCarServiceCategory = useMapLayersStore((state) => state.setCarServiceCategory);
+  const toggleTourismPlaceCategory = useMapLayersStore((state) => state.toggleTourismPlaceCategory);
   const resetLayers = useMapLayersStore((state) => state.resetLayers);
 
   const overlayRow = (
@@ -106,12 +117,49 @@ export function MapLayersSheet({ visible, onClose }: { visible: boolean; onClose
               );
             })}
           </View>
+          {primaryCategory === 'car_services' ? (
+            <View style={{ flexDirection: row, flexWrap: 'wrap', gap: spacing.sm }}>
+              {CAR_SERVICE_CATEGORIES.map((category: CarServiceCategory) => {
+                const active = carServiceCategory === category;
+                return (
+                  <AppButton
+                    key={category}
+                    label={t(`carServices.category.${category}`)}
+                    size="sm"
+                    fullWidth={false}
+                    variant={active ? 'primary' : 'secondary'}
+                    onPress={() => setCarServiceCategory(category)}
+                  />
+                );
+              })}
+            </View>
+          ) : null}
+          {primaryCategory === 'tourism_places' ? (
+            <View style={{ flexDirection: row, flexWrap: 'wrap', gap: spacing.sm }}>
+              {TOURISM_PLACE_CATEGORIES.map((category: TourismPlaceCategory) => {
+                const active = tourismPlaceCategories.includes(category);
+                return (
+                  <AppButton
+                    key={category}
+                    label={t(`tourism.category.${category}`)}
+                    size="sm"
+                    fullWidth={false}
+                    variant={active ? 'primary' : 'secondary'}
+                    onPress={() => toggleTourismPlaceCategory(category)}
+                  />
+                );
+              })}
+            </View>
+          ) : null}
         </View>
 
         <View style={{ gap: spacing.xs }}>
           <AppText variant="label" color="textSecondary">{t('mapLayers.overlays')}</AppText>
           {overlayRow(t('mapLayers.roadReports'), <TriangleAlert size={18} color={colors.warningText} />, roadReportsEnabled, setRoadReportsEnabled, true)}
           {overlayRow(t('mapLayers.businessOffers'), <BadgePercent size={18} color={colors.textTertiary} />, businessOffersEnabled, setBusinessOffersEnabled, BUSINESS_OFFERS_AVAILABLE)}
+          {primaryCategory === 'parking'
+            ? overlayRow(t('mapLayers.accessibleParking'), <Accessibility size={18} color={colors.info} />, accessibleParkingOnly, setAccessibleParkingOnly, true)
+            : null}
         </View>
 
         <AppButton label={t('common.close')} onPress={onClose} variant="secondary" size="sm" />

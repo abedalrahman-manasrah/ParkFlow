@@ -28,6 +28,7 @@ const load = createClientLoader({ stubs: {
 services.profile = load('@parkflow/client/services/http/profileService').httpProfileService;
 const PersonalInfoScreen = load('apps/customer/app/profile/personal.tsx').default;
 const { useAuthStore } = load('@parkflow/client/store/authStore');
+const { usePreferencesStore } = load('@parkflow/client/store/preferencesStore');
 let renderer, client;
 const user = overrides => ({
   id: 'email-user', fullName: 'Email Customer', email: 'customer@example.com', phone: null,
@@ -37,6 +38,8 @@ const user = overrides => ({
 });
 beforeEach(() => {
   calls.length = 0; routes.length = 0; persisted.clear();
+  // Keep the real locale hook while explicitly selecting the labels asserted below.
+  usePreferencesStore.getState().setLocale('en');
   useAuthStore.setState({ user: undefined, session: undefined, hydrated: true });
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false, gcTime: Infinity } } });
 });

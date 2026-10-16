@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 
-import { AppButton, AppText, InlineNotice, Reveal, Screen } from '@parkflow/client/components/ui';
+import { AppButton, AppText, InlineNotice, OnboardingStepper, Reveal, Screen } from '@parkflow/client/components/ui';
 import { VehicleForm } from '../../src/components/domain/VehicleForm';
 import { spacing } from '@parkflow/design/spacing';
 import { useLocale } from '@parkflow/client/hooks/useLocale';
@@ -29,6 +29,7 @@ export default function AddFirstVehicleScreen() {
   return (
     <Screen keyboardAvoiding>
       <View style={{ height: spacing.giant }} />
+      <OnboardingStepper current={3} />
 
       <Reveal style={{ gap: spacing.sm }}>
         <AppText variant="h1">{t('onboarding.vehicleTitle')}</AppText>

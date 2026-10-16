@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CheckpointStatus, GeoPoint, ReportedAvailability } from '@parkflow/contracts';
 import { services } from '../services/index';
+import { useInAppNotificationStore } from '../store/inAppNotificationStore';
 import { queryKeys } from './queryKeys';
 import { useUserId } from './useSession';
 import { cachedRead } from '../offline/storage';
@@ -40,7 +41,10 @@ export function useReportCheckpoint() {
   return useMutation({
     mutationFn: (input: { checkpointId: string; status: CheckpointStatus }) =>
       services.roads.report({ userId: userId!, ...input }),
-    onSuccess: invalidate,
+    onSuccess: (result) => {
+      invalidate();
+      useInAppNotificationStore.getState().show(result.points?.notification);
+    },
   });
 }
 
@@ -50,7 +54,8 @@ export function useReportZone() {
   return useMutation({
     mutationFn: (input: { zoneId: string; availability: ReportedAvailability }) =>
       services.roads.reportZone({ userId: userId!, ...input }),
-    onSuccess: () => {
+    onSuccess: (result) => {
+      useInAppNotificationStore.getState().show(result.points?.notification);
       void queryClient.invalidateQueries({ queryKey: ['zones'] });
       void queryClient.invalidateQueries({ queryKey: ['zone'] });
       void queryClient.invalidateQueries({ queryKey: ['trust'] });

@@ -4,6 +4,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
+import { Reveal } from '@parkflow/client/components/ui';
 import { MapSurface } from '../../src/components/map/MapSurface';
 import type { MapCheckpoint, MapRoute, MapSurfaceHandle } from '../../src/components/map/types';
 import { MapTopBar } from '../../src/components/map/MapTopBar';
@@ -24,8 +25,18 @@ import { MapLayersSheet } from '../../src/components/map/MapLayersSheet';
 import { EvStationDetailsSheet } from '../../src/components/map/EvStationDetailsSheet';
 import { EvFiltersSheet } from '../../src/components/map/EvFiltersSheet';
 import { EvMapStatus } from '../../src/components/map/EvMapStatus';
+import { CarServiceDetailsSheet } from '../../src/components/map/CarServiceDetailsSheet';
+import { CarServiceMapStatus } from '../../src/components/map/CarServiceMapStatus';
+import { useWarningServiceNavigationStore } from '@parkflow/client/store/warningServiceNavigationStore';
+import { useCarServicesStore } from '@parkflow/client/store/carServicesStore';
+import { TourismPlaceDetailsSheet } from '../../src/components/map/TourismPlaceDetailsSheet';
+import { TourismPlaceMapStatus } from '../../src/components/map/TourismPlaceMapStatus';
+import { DestinationSearchBox } from '../../src/components/map/DestinationSearchBox';
+import { DestinationParkingPanel } from '../../src/components/map/DestinationParkingPanel';
 import { useEvStations } from '@parkflow/client/hooks/useEvStations';
-import { evDestination, parkingDestination, type EvChargingStation, type RouteDestination } from '@parkflow/contracts';
+import { useCarServices } from '@parkflow/client/hooks/useCarServices';
+import { useTourismPlaces } from '@parkflow/client/hooks/useTourismPlaces';
+import { carServiceDestination, evDestination, parkingDestination, placeDestination, tourismPlaceDestination, type CarServiceBusiness, type EvChargingStation, type RouteDestination, type TourismPlace, type TourismPlaceCategory } from '@parkflow/contracts';
 
 import { useTheme } from '@parkflow/client/theme/ThemeProvider';
 import { spacing, screenPadding } from '@parkflow/design/spacing';
@@ -36,12 +47,16 @@ import { useCheckpoints, useRoute } from '@parkflow/client/hooks/useCommunity';
 import { useUnreadNotificationCount } from '@parkflow/client/hooks/useNotifications';
 import { useUserLocation } from '@parkflow/client/hooks/useUserLocation';
 import { useCreateRoadReport, useRoadReports } from '@parkflow/client/hooks/useRoadReports';
-import { DEFAULT_REGION } from '@parkflow/client/services';
+import { DEFAULT_REGION, services } from '@parkflow/client/services';
 import type { CreateRoadReportInput, GeoPoint, GeoRegion, ParkingZone, RamallahParkingLocation, RoadReport, RoadReportType, RouteResult } from '@parkflow/contracts';
-import { distanceMeters } from '@parkflow/client/utils/geo';
+import { distanceMeters, distanceToPolyline } from '@parkflow/client/utils/geo';
 import { assessRouteAlternatives } from '@parkflow/client/utils/routeImpact';
 import { haptics } from '@parkflow/client/utils/haptics';
 import { isValidGeoPoint, normalizeGeoPoint, normalizeGeoPoints } from '@parkflow/client/utils/coordinates';
+import { searchPlaces, type PlaceSuggestion } from '@parkflow/client/services/placeSearchService';
+import { rankParkingForDestination } from '@parkflow/client/utils/parkingRecommendation';
+import { formatNeedLabels, freeTextNeedCategories, parseTripNeedSemanticText, parseTripNeeds, tripNeedCategoryMatchesTerm, type TripNeedCategory, type TripNeedFreeText, type TripNeedPlace } from '@parkflow/client/utils/tripNeeds';
+import { planRouteWithNeeds, type TripNeedsRoutePlan } from '@parkflow/client/utils/tripNeedsRouting';
 import { useMapLayersStore } from '@parkflow/client/store/mapLayersStore';
 import { useReservationRouteStore } from '@parkflow/client/store/reservationRouteStore';
 import { useAuthStore } from '@parkflow/client/store/authStore';
@@ -62,8 +77,62 @@ const FASTEST_PARKING_ROUTE = {
   maxAlternatives: 2,
 } as const;
 
+type TripNeedsMode = 'idle' | 'choosing' | 'parking' | 'route';
+type RouteNeedsDisplayMode = 'needs' | 'shortest';
+
 /** ~10 m precision keeps GPS jitter from producing new route queries. */
 const round4 = (value: number) => Math.round(value * 10_000) / 10_000;
+const ROUTE_SHARED_TOLERANCE_METERS = 25;
+const MIN_DETOUR_SEGMENT_METERS = 45;
+const NEED_STOP_DETOUR_RADIUS_METERS = 90;
+
+function routeLength(points: GeoPoint[]) {
+  return points.reduce((total, point, index) =>
+    index === 0 ? 0 : total + distanceMeters(points[index - 1]!, point), 0);
+}
+
+function routeDetourSegments(
+  needAware: GeoPoint[],
+  shortest: GeoPoint[],
+  needStops: GeoPoint[] = [],
+) {
+  if (needAware.length < 2 || shortest.length < 2) return [];
+  const offShortestNeedStops = needStops.filter((stop) =>
+    distanceToPolyline(stop, shortest) > ROUTE_SHARED_TOLERANCE_METERS
+  );
+  const groups: GeoPoint[][] = [];
+  let current: GeoPoint[] = [];
+
+  for (let index = 1; index < needAware.length; index += 1) {
+    const start = needAware[index - 1]!;
+    const end = needAware[index]!;
+    const midpoint = {
+      latitude: (start.latitude + end.latitude) / 2,
+      longitude: (start.longitude + end.longitude) / 2,
+    };
+    const shared = [start, midpoint, end].every((point) =>
+      distanceToPolyline(point, shortest) <= ROUTE_SHARED_TOLERANCE_METERS
+    );
+    const servesOffRouteNeed = offShortestNeedStops.some((stop) =>
+      [start, midpoint, end].some((point) => distanceMeters(point, stop) <= NEED_STOP_DETOUR_RADIUS_METERS)
+    );
+
+    if (shared && !servesOffRouteNeed) {
+      if (current.length >= 2 && routeLength(current) >= MIN_DETOUR_SEGMENT_METERS) {
+        groups.push(current);
+      }
+      current = [];
+    } else {
+      if (!current.length) current = [start];
+      current.push(end);
+    }
+  }
+
+  if (current.length >= 2 && routeLength(current) >= MIN_DETOUR_SEGMENT_METERS) {
+    groups.push(current);
+  }
+  return groups;
+}
 
 export default function MapScreen() {
   const userId = useAuthStore((state) => state.user?.id);
@@ -106,15 +175,55 @@ function AccountMapScreen() {
   const [reportDraft, setReportDraft] = useState<Partial<CreateRoadReportInput>>({});
   const [selectedReport, setSelectedReport] = useState<RoadReport>();
   const [layersSheetOpen, setLayersSheetOpen] = useState(false);
+  const [destinationQuery, setDestinationQuery] = useState('');
+  const [placeSuggestions, setPlaceSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [placeSearchLoading, setPlaceSearchLoading] = useState(false);
+  const [placeSearchError, setPlaceSearchError] = useState(false);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [selectedDestination, setSelectedDestination] = useState<PlaceSuggestion>();
+  const [tripNeedsExpanded, setTripNeedsExpanded] = useState(false);
+  const [tripNeedsAppliedText, setTripNeedsAppliedText] = useState('');
+  const [tripNeedsMode, setTripNeedsMode] = useState<TripNeedsMode>('idle');
+  const [tripNeedCategories, setTripNeedCategories] = useState<TripNeedCategory[]>([]);
+  const [tripNeedFreeText, setTripNeedFreeText] = useState<TripNeedFreeText[]>([]);
+  const [tripNeedPlaces, setTripNeedPlaces] = useState<TripNeedPlace[]>([]);
+  const [tripNeedsLoading, setTripNeedsLoading] = useState(false);
+  const [tripNeedsError, setTripNeedsError] = useState(false);
+  const [routeNeedsPlan, setRouteNeedsPlan] = useState<TripNeedsRoutePlan>();
+  const [activeRouteNeedsPlan, setActiveRouteNeedsPlan] = useState<TripNeedsRoutePlan>();
+  const [routeNeedsDisplayMode, setRouteNeedsDisplayMode] = useState<RouteNeedsDisplayMode>('needs');
+  const [routeNeedsLoading, setRouteNeedsLoading] = useState(false);
+  const [routeNeedsError, setRouteNeedsError] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       setMapFocused(true);
+      const navigation = useWarningServiceNavigationStore.getState();
+      if (navigation.pending) {
+        const service = navigation.pending;
+        const next = { latitude: service.latitude, longitude: service.longitude, latitudeDelta: 0.025, longitudeDelta: 0.025 };
+        setRegion(next);
+        mapRef.current?.animateToRegion(next, 450);
+        useCarServicesStore.getState().select(service);
+        setSelectedZoneId(undefined);
+        setSelectedReport(undefined);
+        setRouteTarget(undefined);
+        setReportStep(undefined);
+        setReportLocationPicking(false);
+        setLayersSheetOpen(false);
+        setVehicleSheetOpen(false);
+        setCodeSheetOpen(false);
+        setEvFiltersOpen(false);
+        setEntryMenuOpen(false);
+        navigation.clear();
+      }
       return () => setMapFocused(false);
     }, []),
   );
 
   const primaryMapCategory = useMapLayersStore((state) => state.primaryCategory);
+  const carServiceCategory = useMapLayersStore((state) => state.carServiceCategory);
+  const tourismPlaceCategories = useMapLayersStore((state) => state.tourismPlaceCategories);
   const pendingReservationRouteZoneId = useReservationRouteStore((state) => state.pendingZoneId);
   const storedRouteOrigin = useReservationRouteStore((state) => state.origin);
   const storedRouteOriginMode = useReservationRouteStore((state) => state.originMode);
@@ -124,13 +233,18 @@ function AccountMapScreen() {
   const saveReturnToCar = useReservationRouteStore((state) => state.saveReturnToCar);
   const evActive = primaryMapCategory === 'ev_charging';
   const ev = useEvStations(evActive, region);
+  const carServicesActive = primaryMapCategory === 'car_services';
+  const carServices = useCarServices(carServicesActive, region, carServiceCategory);
+  const tourismPlacesActive = primaryMapCategory === 'tourism_places';
+  const tourismPlaces = useTourismPlaces(tourismPlacesActive, region, tourismPlaceCategories);
   useEffect(() => { if (!evActive) setEvFiltersOpen(false); }, [evActive]);
   const roadReportsEnabled = useMapLayersStore((state) => state.roadReportsEnabled);
   const businessOffersEnabled = useMapLayersStore((state) => state.businessOffersEnabled);
+  const accessibleParkingOnly = useMapLayersStore((state) => state.accessibleParkingOnly);
   const enabledLayerCount = 1 + Number(roadReportsEnabled) + Number(businessOffersEnabled);
 
   const { vehicles, selected, select } = useSelectedVehicle();
-  const { data: zones = [], isPending: zonesPending } = useZones();
+  const { data: zones = [], isPending: zonesPending, isError: zonesError, refetch: refetchZones } = useZones();
   const { data: activeSessions = [] } = useActiveSessions();
   const { data: checkpoints = [] } = useCheckpoints();
   const { data: unreadCount = 0 } = useUnreadNotificationCount();
@@ -175,14 +289,155 @@ function AccountMapScreen() {
   const nearbyZones = useMemo<NearbyZone[]>(
     () =>
       zones
+        .filter((zone) => !accessibleParkingOnly || (zone.accessibleSpots ?? 0) > 0)
         .map((zone) => ({ zone, distanceMeters: distanceMeters(nearbyOrigin, zone.location) }))
         .sort((a, b) => a.distanceMeters - b.distanceMeters),
-    [zones, nearbyOrigin],
+    [zones, nearbyOrigin, accessibleParkingOnly],
   );
   const mapZones = useMemo(
     () => nearbyZones.filter(({ zone }) => !ramallahParkingZoneIds.has(zone.id)),
     [nearbyZones],
   );
+  const allTripNeedCategories = useMemo(
+    () => {
+      const freeTextCategories = freeTextNeedCategories(tripNeedFreeText);
+      const semanticTerms = tripNeedFreeText.map((term) => term.normalized);
+      const mappedCategories = tripNeedCategories.filter((category) =>
+        !semanticTerms.some((term) => tripNeedCategoryMatchesTerm(category, term))
+      );
+      return [...mappedCategories, ...freeTextCategories];
+    },
+    [tripNeedCategories, tripNeedFreeText],
+  );
+  const destinationRecommendations = useMemo(
+    () => selectedDestination
+      ? rankParkingForDestination(
+        selectedDestination.location,
+        [...zones, ...ramallahParkingZones],
+        new Date(),
+        {
+          needCategories: tripNeedsMode === 'parking' ? allTripNeedCategories : [],
+          needPlaces: tripNeedsMode === 'parking' ? tripNeedPlaces : [],
+        },
+      )
+      : [],
+    [allTripNeedCategories, selectedDestination, tripNeedPlaces, tripNeedsMode, zones],
+  );
+  const tripNeedsNoMatches = Boolean(
+    tripNeedsAppliedText &&
+    allTripNeedCategories.length > 0 &&
+    !tripNeedsLoading &&
+    !tripNeedsError &&
+    tripNeedPlaces.length === 0,
+  );
+
+  useEffect(() => {
+    if (!selectedDestination || allTripNeedCategories.length === 0) {
+      setTripNeedPlaces([]);
+      setTripNeedsLoading(false);
+      setTripNeedsError(false);
+      return;
+    }
+    let cancelled = false;
+    const center = selectedDestination.location;
+    const radiusMeters = 2_800;
+    const latDelta = radiusMeters / 111_320;
+    const lonDelta = radiusMeters / (111_320 * Math.max(0.25, Math.cos(center.latitude * Math.PI / 180)));
+    const bounds = {
+      north: Math.min(90, center.latitude + latDelta),
+      south: Math.max(-90, center.latitude - latDelta),
+      east: Math.min(180, center.longitude + lonDelta),
+      west: Math.max(-180, center.longitude - lonDelta),
+    };
+    setTripNeedsLoading(true);
+    setTripNeedsError(false);
+    Promise.all(allTripNeedCategories.flatMap((category) => {
+      const placeSearches = category.searchQueries.map((query) =>
+        searchPlaces(query, { center, radiusMeters, limit: 5 })
+          .then((places): TripNeedPlace[] => places.map((place) => ({
+            id: `${category.id}:${place.id}`,
+            categoryId: category.id,
+            needKey: category.needKey,
+            labelAr: category.labelAr,
+            labelEn: category.labelEn,
+            name: place.name,
+            nameAr: place.nameAr,
+            nameEn: place.nameEn,
+            location: place.location,
+            source: 'place',
+          }))),
+      );
+      const serviceSearch = category.carServiceCategory
+        ? services.carServices.list(bounds, { category: category.carServiceCategory })
+          .then((result): TripNeedPlace[] => result.services
+            .filter((service) => isValidGeoPoint({ latitude: service.latitude, longitude: service.longitude }))
+            .map((service) => ({
+              id: `${category.id}:car-service:${service.id}`,
+              categoryId: category.id,
+              needKey: category.needKey,
+              labelAr: category.labelAr,
+              labelEn: category.labelEn,
+              name: locale === 'ar' ? service.nameAr : service.nameEn,
+              nameAr: service.nameAr,
+              nameEn: service.nameEn,
+              location: { latitude: service.latitude, longitude: service.longitude },
+              source: 'car_service',
+            })))
+        : Promise.resolve<TripNeedPlace[]>([]);
+      return [...placeSearches, serviceSearch];
+    }))
+      .then((groups) => {
+        if (cancelled) return;
+        const unique = new Map<string, TripNeedPlace>();
+        for (const place of groups.flat()) {
+          const key = `${place.categoryId}:${place.location.latitude.toFixed(5)},${place.location.longitude.toFixed(5)}`;
+          if (!unique.has(key)) unique.set(key, place);
+        }
+        setTripNeedPlaces([...unique.values()]);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setTripNeedPlaces([]);
+          setTripNeedsError(true);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setTripNeedsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [allTripNeedCategories, locale, selectedDestination]);
+
+  useEffect(() => {
+    const query = destinationQuery.trim();
+    if (query.length < 2 || selectedDestination?.name === destinationQuery) {
+      setPlaceSuggestions([]);
+      setPlaceSearchLoading(false);
+      setPlaceSearchError(false);
+      return;
+    }
+    let cancelled = false;
+    setPlaceSearchLoading(true);
+    setPlaceSearchError(false);
+    const timeout = setTimeout(() => {
+      searchPlaces(query, { center: { latitude: region.latitude, longitude: region.longitude } })
+        .then((results) => {
+          if (!cancelled) setPlaceSuggestions(results);
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setPlaceSuggestions([]);
+            setPlaceSearchError(true);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setPlaceSearchLoading(false);
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [destinationQuery, region.latitude, region.longitude, selectedDestination?.name]);
 
   const alerts = useMemo(
     () =>
@@ -228,10 +483,38 @@ function AccountMapScreen() {
     [routeTarget],
   );
   const { data: route, isFetching: routeLoading, isError: routeError } = useRoute(
-    routeDestination ? routeOrigin : undefined,
-    routeDestination,
-    routeTarget ? FASTEST_PARKING_ROUTE : undefined,
+    !activeRouteNeedsPlan && routeDestination ? routeOrigin : undefined,
+    !activeRouteNeedsPlan ? routeDestination : undefined,
+    !activeRouteNeedsPlan && routeTarget ? FASTEST_PARKING_ROUTE : undefined,
   );
+  useEffect(() => {
+    setRouteNeedsPlan(undefined);
+    setRouteNeedsError(false);
+    setRouteNeedsDisplayMode('needs');
+    if (tripNeedsMode !== 'route') {
+      setActiveRouteNeedsPlan(undefined);
+    }
+    if (!selectedDestination || !routeOrigin || allTripNeedCategories.length === 0 || tripNeedsLoading) {
+      setRouteNeedsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setRouteNeedsLoading(true);
+    planRouteWithNeeds(routeOrigin, selectedDestination.location, allTripNeedCategories, tripNeedPlaces)
+      .then((plan) => {
+        if (!cancelled) {
+          setRouteNeedsPlan(plan);
+          if (tripNeedsMode === 'route') setActiveRouteNeedsPlan(plan);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setRouteNeedsError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setRouteNeedsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [allTripNeedCategories, routeOrigin, selectedDestination, tripNeedPlaces, tripNeedsLoading, tripNeedsMode]);
   useEffect(() => {
     setSelectedRouteId('current');
     setAlternativeDismissed(false);
@@ -246,16 +529,21 @@ function AccountMapScreen() {
     }
   }, [route, selectedRouteId]);
   const routeAssessment = useMemo(
-    () => route?.source === 'osrm'
+    () => !activeRouteNeedsPlan && route?.source === 'osrm'
       ? assessRouteAlternatives(route, roadReports, routeOrigin)
       : undefined,
-    [roadReports, route, routeOrigin],
+    [activeRouteNeedsPlan, roadReports, route, routeOrigin],
   );
   const selectedAlternative = useMemo(
     () => route?.alternatives.find((alternative) => alternative.id === selectedRouteId),
     [route, selectedRouteId],
   );
   const displayedRoute = useMemo<RouteResult | undefined>(() => {
+    if (activeRouteNeedsPlan) {
+      return routeNeedsDisplayMode === 'shortest'
+        ? activeRouteNeedsPlan.baseRoute
+        : activeRouteNeedsPlan.route;
+    }
     if (!route || !selectedAlternative) return route;
     return {
       ...route,
@@ -264,8 +552,29 @@ function AccountMapScreen() {
       durationSeconds: selectedAlternative.durationSeconds,
       penaltySeconds: 0,
       closuresOnRoute: [],
+      trafficSegments: undefined,
+      trafficSummary: undefined,
     };
-  }, [route, selectedAlternative]);
+  }, [activeRouteNeedsPlan, route, routeNeedsDisplayMode, selectedAlternative]);
+  const routeNeedsComparison = useMemo(() => {
+    if (!activeRouteNeedsPlan) return undefined;
+    const needAware = activeRouteNeedsPlan.route;
+    const shortest = activeRouteNeedsPlan.baseRoute;
+    const extraDurationSeconds = Math.max(0, needAware.durationSeconds - shortest.durationSeconds);
+    const extraDistanceMeters = Math.max(0, needAware.distanceMeters - shortest.distanceMeters);
+    const extraPercent = shortest.durationSeconds > 0
+      ? Math.round((extraDurationSeconds / shortest.durationSeconds) * 100)
+      : 0;
+    return {
+      mode: routeNeedsDisplayMode,
+      needAware,
+      shortest,
+      extraDurationSeconds,
+      extraDistanceMeters,
+      extraPercent,
+      significant: (extraDurationSeconds >= 5 * 60 && extraPercent >= 15) || extraDurationSeconds >= 10 * 60,
+    };
+  }, [activeRouteNeedsPlan, routeNeedsDisplayMode]);
   const activeRouteAssessment = selectedRouteId === 'current'
     ? routeAssessment?.current
     : routeAssessment?.alternatives.find((alternative) => alternative.id === selectedRouteId);
@@ -274,6 +583,13 @@ function AccountMapScreen() {
       if (!routeDestination || displayedRoute?.source !== 'osrm') return undefined;
       const coordinates = normalizeGeoPoints(displayedRoute.coordinates);
       if (coordinates.length < 2) return undefined;
+      const detourSegments = activeRouteNeedsPlan
+        ? routeDetourSegments(
+            normalizeGeoPoints(activeRouteNeedsPlan.route.coordinates),
+            normalizeGeoPoints(activeRouteNeedsPlan.baseRoute.coordinates),
+            normalizeGeoPoints(activeRouteNeedsPlan.stops.map((stop) => stop.place.location)),
+          )
+        : [];
       const alternativeLines = selectedRouteId === 'current'
         ? displayedRoute.alternatives.map((item) => item.coordinates)
         : [
@@ -284,13 +600,45 @@ function AccountMapScreen() {
           ];
       return {
         coordinates,
+        trafficState: displayedRoute.trafficSummary?.state,
+        trafficSegments: displayedRoute.trafficSegments
+          ?.map((segment) => ({
+            ...segment,
+            coordinates: normalizeGeoPoints(segment.coordinates),
+          }))
+          .filter((segment) => segment.coordinates.length >= 2),
+        detourSegments,
+        detourMode: activeRouteNeedsPlan
+          ? routeNeedsDisplayMode === 'shortest' ? 'comparison' : 'primary'
+          : undefined,
+        showRouteLegend: detourSegments.length > 0,
         alternatives: alternativeLines
           .map(normalizeGeoPoints)
           .filter((line) => line.length >= 2),
       };
     },
-    [displayedRoute, route, routeDestination, selectedRouteId],
+    [activeRouteNeedsPlan, displayedRoute, route, routeDestination, routeNeedsDisplayMode, selectedRouteId],
   );
+  const routeNeedsVisible = tripNeedsMode === 'route' && Boolean(routeTarget);
+  const visibleNeedStops = useMemo(
+    () => routeNeedsVisible && routeNeedsDisplayMode === 'needs'
+      ? tripNeedPlaces.map((place) => ({
+        id: place.id,
+        name: locale === 'ar' ? place.nameAr ?? place.name : place.nameEn ?? place.name,
+        category: locale === 'ar' ? place.labelAr : place.labelEn,
+        location: place.location,
+      }))
+      : undefined,
+    [locale, routeNeedsDisplayMode, routeNeedsVisible, tripNeedPlaces],
+  );
+  const routeNeedsNotice = useMemo(() => {
+    if (!routeNeedsVisible) return undefined;
+    const missingCategories = (activeRouteNeedsPlan ?? routeNeedsPlan)?.missingCategories ?? [];
+    if (!missingCategories.length) return undefined;
+    return t('tripNeeds.missingRouteNeeds', {
+      needs: formatNeedLabels(missingCategories, locale).join(locale === 'ar' ? '\u060c ' : ', '),
+    });
+  }, [activeRouteNeedsPlan, locale, routeNeedsPlan, routeNeedsVisible, t]);
 
   useEffect(() => {
     if (!mapRoute) return;
@@ -339,6 +687,9 @@ function AccountMapScreen() {
     setEntryMenuOpen(false);
     setNearbyExpanded(false);
     setRouteTarget(undefined);
+    setActiveRouteNeedsPlan(undefined);
+    setRouteNeedsDisplayMode('needs');
+    setSelectedDestination(undefined);
     setRouteDetailsExpanded(false);
     setSelectedZoneId(zone.id);
     setSelectedReport(undefined);
@@ -358,6 +709,8 @@ function AccountMapScreen() {
     (zone: ParkingZone) => {
       setSelectedZoneId(undefined);
       setRouteTarget(undefined);
+      setActiveRouteNeedsPlan(undefined);
+      setRouteNeedsDisplayMode('needs');
       setRouteDetailsExpanded(false);
       router.push({ pathname: '/parking/start', params: { zoneId: zone.id } });
     },
@@ -425,16 +778,128 @@ function AccountMapScreen() {
         setRouteDetailsExpanded(false);
         setSelectedRouteId('current');
         setAlternativeDismissed(false);
+        setRouteNeedsDisplayMode('needs');
         setRouteTarget({ ...destination, location: normalizedDestination });
+        setActiveRouteNeedsPlan(undefined);
         consumeReservationRoute();
         ev.select(undefined);
+        carServices.select(undefined);
+        tourismPlaces.select(undefined);
         return true;
       } finally {
         routeStartInFlightRef.current = false;
       }
     },
-    [consumeReservationRoute, location, requestLocation, setRouteOrigin, storedRouteOrigin, storedRouteOriginMode, t, testLocation, testLocationMode, ev.select],
+    [consumeReservationRoute, location, requestLocation, setRouteOrigin, storedRouteOrigin, storedRouteOriginMode, t, testLocation, testLocationMode, ev.select, carServices.select, tourismPlaces.select],
   );
+
+  const changeDestinationQuery = useCallback((value: string) => {
+    setDestinationQuery(value);
+    setSuggestionsOpen(true);
+    if (!value.trim()) {
+      setSelectedDestination(undefined);
+      setPlaceSuggestions([]);
+      setPlaceSearchError(false);
+      setTripNeedsExpanded(false);
+      setTripNeedsAppliedText('');
+      setTripNeedsMode('idle');
+      setTripNeedCategories([]);
+      setTripNeedFreeText([]);
+      setTripNeedPlaces([]);
+      setRouteNeedsPlan(undefined);
+      setActiveRouteNeedsPlan(undefined);
+      setRouteNeedsDisplayMode('needs');
+      setRouteNeedsError(false);
+    }
+  }, []);
+
+  const selectDestination = useCallback((suggestion: PlaceSuggestion) => {
+    haptics.select();
+    setSelectedDestination(suggestion);
+    setDestinationQuery(locale === 'ar' ? suggestion.nameAr ?? suggestion.name : suggestion.nameEn ?? suggestion.name);
+    setSuggestionsOpen(false);
+    setPlaceSuggestions([]);
+    setSelectedZoneId(undefined);
+    setSelectedReport(undefined);
+    setRouteTarget(undefined);
+    setActiveRouteNeedsPlan(undefined);
+    setRouteNeedsDisplayMode('needs');
+    setRouteDetailsExpanded(false);
+    setNearbyExpanded(false);
+    setTripNeedsExpanded(false);
+    setTripNeedsAppliedText('');
+    setTripNeedsMode('idle');
+    setTripNeedCategories([]);
+    setTripNeedFreeText([]);
+    setTripNeedPlaces([]);
+    setTripNeedsError(false);
+    setRouteNeedsPlan(undefined);
+    setActiveRouteNeedsPlan(undefined);
+    setRouteNeedsDisplayMode('needs');
+    setRouteNeedsError(false);
+    const next: GeoRegion = {
+      ...suggestion.location,
+      latitudeDelta: 0.012,
+      longitudeDelta: 0.012,
+    };
+    setRegion(next);
+    mapRef.current?.animateToRegion(next, 450);
+  }, [locale]);
+
+  const applyTripNeeds = useCallback((value: string) => {
+    const categories = parseTripNeeds(value);
+    const freeText = parseTripNeedSemanticText(value, categories);
+    setTripNeedsAppliedText(value.trim());
+    setTripNeedsMode('choosing');
+    setTripNeedCategories(categories);
+    setTripNeedFreeText(freeText);
+    setTripNeedPlaces([]);
+    setTripNeedsError(false);
+    setRouteNeedsPlan(undefined);
+    setActiveRouteNeedsPlan(undefined);
+    setRouteNeedsDisplayMode('needs');
+    setRouteNeedsError(false);
+  }, []);
+
+  const startRouteWithNeeds = useCallback(async () => {
+    if (!selectedDestination) return;
+    setTripNeedsMode('route');
+    setSelectedZoneId(undefined);
+    setNearbyExpanded(false);
+    setRouteDetailsExpanded(false);
+    setSelectedRouteId('current');
+    setAlternativeDismissed(false);
+    setRouteNeedsDisplayMode('needs');
+    const started = await startRoute(placeDestination(selectedDestination));
+    if (!started) {
+      setTripNeedsMode('choosing');
+      return;
+    }
+    setActiveRouteNeedsPlan(routeNeedsPlan);
+  }, [routeNeedsPlan, selectedDestination, startRoute]);
+
+  const showBestParkingForNeeds = useCallback(() => {
+    haptics.select();
+    setTripNeedsMode('parking');
+    setActiveRouteNeedsPlan(undefined);
+    setRouteNeedsDisplayMode('needs');
+    setRouteTarget(undefined);
+    setSelectedZoneId(undefined);
+    setNearbyExpanded(false);
+  }, []);
+
+  const clearTripNeeds = useCallback(() => {
+    setTripNeedsAppliedText('');
+    setTripNeedsMode('idle');
+    setTripNeedCategories([]);
+    setTripNeedFreeText([]);
+    setTripNeedPlaces([]);
+    setTripNeedsError(false);
+    setRouteNeedsPlan(undefined);
+    setActiveRouteNeedsPlan(undefined);
+    setRouteNeedsDisplayMode('needs');
+    setRouteNeedsError(false);
+  }, []);
 
   useEffect(() => {
     if (!mapFocused || !pendingReservationRouteZoneId) return;
@@ -457,8 +922,45 @@ function AccountMapScreen() {
     if (zone) openZone(zone);
   }, [openZone, zones]);
 
+  const selectCarService = useCallback((service: CarServiceBusiness) => {
+    haptics.select();
+    setSelectedZoneId(undefined);
+    setSelectedReport(undefined);
+    setEntryMenuOpen(false);
+    setReportStep(undefined);
+    setReportLocationPicking(false);
+    carServices.select(service);
+  }, [carServices.select]);
+
+  const carServiceAccessibilityLabel = useCallback((service: CarServiceBusiness) => {
+    const name = locale === 'ar' ? service.nameAr : service.nameEn;
+    return `${name}, ${t(`carServices.category.${carServiceCategory}`)}`;
+  }, [carServiceCategory, locale, t]);
+
+  const selectTourismPlace = useCallback((place: TourismPlace) => {
+    haptics.select();
+    setSelectedZoneId(undefined);
+    setSelectedReport(undefined);
+    setEntryMenuOpen(false);
+    setReportStep(undefined);
+    setReportLocationPicking(false);
+    tourismPlaces.select(place);
+  }, [tourismPlaces.select]);
+
+  const tourismPlaceMarkerCategory = useCallback((place: TourismPlace): TourismPlaceCategory => (
+    tourismPlaceCategories.find((category) => place.categories.includes(category)) ?? place.primaryCategory
+  ), [tourismPlaceCategories]);
+
+  const tourismPlaceAccessibilityLabel = useCallback((place: TourismPlace) => {
+    const name = locale === 'ar' ? place.nameAr : place.nameEn;
+    return `${name}, ${place.categories.map((category) => t(`tourism.category.${category}`)).join(', ')}`;
+  }, [locale, t]);
+
   const closeRoute = useCallback(() => {
     setRouteTarget(undefined);
+    setActiveRouteNeedsPlan(undefined);
+    setRouteNeedsDisplayMode('needs');
+    setTripNeedsMode((mode) => mode === 'route' ? 'choosing' : mode);
     setRouteDetailsExpanded(false);
     setSelectedRouteId('current');
     setAlternativeDismissed(false);
@@ -574,10 +1076,26 @@ function AccountMapScreen() {
     ev.select(station);
   }, [ev.select]);
 
-  // Never stack the EV modal with the existing map sheets.
+  const focusEvStation = useCallback((station: EvChargingStation) => {
+    const next: GeoRegion = {
+      latitude: station.latitude,
+      longitude: station.longitude,
+      latitudeDelta: Math.min(region.latitudeDelta, 0.01),
+      longitudeDelta: Math.min(region.longitudeDelta, 0.01),
+    };
+    setRegion(next);
+    mapRef.current?.animateToRegion(next, 450);
+    selectEvStation(station);
+  }, [region.latitudeDelta, region.longitudeDelta, selectEvStation]);
+
+  // Never stack place detail modals with the existing map sheets.
   useEffect(() => {
-    if (selectedZoneId || selectedReport || reportStep || reportLocationPicking || layersSheetOpen || vehicleSheetOpen || codeSheetOpen || evFiltersOpen) ev.select(undefined);
-  }, [selectedZoneId, selectedReport, reportStep, reportLocationPicking, layersSheetOpen, vehicleSheetOpen, codeSheetOpen, evFiltersOpen, ev.select]);
+    if (selectedZoneId || selectedReport || reportStep || reportLocationPicking || layersSheetOpen || vehicleSheetOpen || codeSheetOpen || evFiltersOpen) {
+      ev.select(undefined);
+      carServices.select(undefined);
+      tourismPlaces.select(undefined);
+    }
+  }, [selectedZoneId, selectedReport, reportStep, reportLocationPicking, layersSheetOpen, vehicleSheetOpen, codeSheetOpen, evFiltersOpen, ev.select, carServices.select, tourismPlaces.select]);
 
   return (
     <View style={{ flex: 1, overflow: 'hidden', backgroundColor: colors.background }}>
@@ -586,18 +1104,30 @@ function AccountMapScreen() {
       <MapSurface
         ref={mapRef}
         region={region}
-        evStations={evActive ? ev.stations : []}
-        selectedEvStationId={evActive ? ev.selectedStationId : undefined}
+        evStations={!routeNeedsVisible && evActive ? ev.stations : []}
+        selectedEvStationId={!routeNeedsVisible && evActive ? ev.selectedStationId : undefined}
         onSelectEvStation={selectEvStation}
-        zones={primaryMapCategory === 'parking' ? mapZones.map((item) => item.zone) : []}
-        selectedZoneId={primaryMapCategory === 'parking' ? selectedZoneId ?? routeZone?.id : undefined}
-        parkingLocations={primaryMapCategory === 'parking' ? ramallahParkingLocations : []}
-        selectedParkingLocationId={primaryMapCategory === 'parking' ? selectedZoneId ?? routeZone?.id : undefined}
+        carServices={!routeNeedsVisible && carServicesActive ? carServices.services : []}
+        activeCarServiceCategory={!routeNeedsVisible && carServicesActive ? carServiceCategory : undefined}
+        selectedCarServiceId={!routeNeedsVisible && carServicesActive ? carServices.selectedServiceId : undefined}
+        onSelectCarService={selectCarService}
+        carServiceAccessibilityLabel={carServiceAccessibilityLabel}
+        tourismPlaces={!routeNeedsVisible && tourismPlacesActive ? tourismPlaces.places : []}
+        selectedTourismPlaceId={!routeNeedsVisible && tourismPlacesActive ? tourismPlaces.selectedPlaceId : undefined}
+        onSelectTourismPlace={selectTourismPlace}
+        tourismPlaceMarkerCategory={tourismPlaceMarkerCategory}
+        tourismPlaceAccessibilityLabel={tourismPlaceAccessibilityLabel}
+        zones={!routeNeedsVisible && primaryMapCategory === 'parking' ? mapZones.map((item) => item.zone) : []}
+        selectedZoneId={!routeNeedsVisible && primaryMapCategory === 'parking' ? selectedZoneId ?? routeZone?.id : undefined}
+        parkingLocations={!routeNeedsVisible && primaryMapCategory === 'parking' ? ramallahParkingLocations : []}
+        selectedParkingLocationId={!routeNeedsVisible && primaryMapCategory === 'parking' ? selectedZoneId ?? routeZone?.id : undefined}
         onSelectParkingLocation={openParkingLocation}
         onSelectZone={openZone}
         onPressMap={handleMapPress}
         onPressBackground={() => {
           ev.select(undefined);
+          carServices.select(undefined);
+          tourismPlaces.select(undefined);
           setSelectedZoneId(undefined);
           setSelectedReport(undefined);
           setEntryMenuOpen(false);
@@ -605,19 +1135,24 @@ function AccountMapScreen() {
         userLocation={testLocationMode ? undefined : location}
         testLocation={testLocation}
         onRegionChangeComplete={setRegion}
-        checkpoints={mapCheckpoints}
+        checkpoints={routeNeedsVisible ? [] : mapCheckpoints}
         onSelectCheckpoint={() => router.push('/roads')}
-        roadReports={roadReportsEnabled ? roadReports : []}
-        selectedRoadReportId={roadReportsEnabled ? selectedReport?.id : undefined}
+        roadReports={!routeNeedsVisible && roadReportsEnabled ? roadReports : []}
+        selectedRoadReportId={!routeNeedsVisible && roadReportsEnabled ? selectedReport?.id : undefined}
         onSelectRoadReport={(report) => {
           setSelectedZoneId(undefined);
-          if (routeTarget?.type !== 'ev_station') setRouteTarget(undefined);
+          if (routeTarget?.type !== 'ev_station' && routeTarget?.type !== 'car_service' && routeTarget?.type !== 'tourism_place') {
+            setRouteTarget(undefined);
+            setActiveRouteNeedsPlan(undefined);
+          }
           setReportStep(undefined);
           setReportLocationPicking(false);
           setSelectedReport(report);
         }}
         reportDraft={reportLocationPicking && reportDraft.type && reportDraft.latitude !== undefined && reportDraft.longitude !== undefined ? { type: reportDraft.type, location: { latitude: reportDraft.latitude, longitude: reportDraft.longitude } } : undefined}
         route={mapRoute}
+        landmark={selectedDestination ? { name: selectedDestination.name, location: selectedDestination.location } : undefined}
+        needStops={visibleNeedStops}
         style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
       />
 
@@ -626,22 +1161,36 @@ function AccountMapScreen() {
         style={{
           paddingTop: insets.top + spacing.sm,
           paddingHorizontal: screenPadding,
+          gap: spacing.sm,
         }}
       >
-        <MapTopBar
-          vehicle={selected}
-          unreadCount={unreadCount}
-          onOpenVehicles={() => setVehicleSheetOpen(true)}
-          onOpenNotifications={() => router.push('/notifications')}
-          onOpenReport={!reportLocationPicking && !reportStep ? () => {
-            setSelectedZoneId(undefined);
-            setSelectedReport(undefined);
-            setEntryMenuOpen(false);
-            setReportDraft({});
-            createReport.reset();
-            setReportStep('type');
-          } : undefined}
-        />
+        <Reveal offset={8}>
+          <MapTopBar
+            vehicle={selected}
+            unreadCount={unreadCount}
+            onOpenVehicles={() => setVehicleSheetOpen(true)}
+            onOpenNotifications={() => router.push('/notifications')}
+            onOpenReport={!reportLocationPicking && !reportStep ? () => {
+              setSelectedZoneId(undefined);
+              setSelectedReport(undefined);
+              setEntryMenuOpen(false);
+              setReportDraft({});
+              createReport.reset();
+              setReportStep('type');
+            } : undefined}
+          />
+        </Reveal>
+        {!reportLocationPicking && !reportStep && !selectedReport ? (
+          <DestinationSearchBox
+            value={destinationQuery}
+            suggestions={placeSuggestions}
+            loading={placeSearchLoading}
+            error={placeSearchError}
+            showSuggestions={suggestionsOpen && !routeTarget}
+            onChange={changeDestinationQuery}
+            onSelect={selectDestination}
+          />
+        ) : null}
       </View>
 
       <View
@@ -691,31 +1240,38 @@ function AccountMapScreen() {
       >
         {!reportLocationPicking && !reportStep && !selectedReport ? <OfflineStaleNotice cacheKey="zones.all" /> : null}
         {!reportLocationPicking && !reportStep && !selectedReport && bannerSession ? (
-          <ActiveSessionBanner
-            session={bannerSession}
-            vehicle={bannerVehicle}
-            extraCount={activeSessions.length - 1}
-            onPress={() => router.push(`/parking/active/${bannerSession.id}`)}
-          />
+          <Reveal offset={10}>
+            <ActiveSessionBanner
+              session={bannerSession}
+              vehicle={bannerVehicle}
+              extraCount={activeSessions.length - 1}
+              onPress={() => router.push(`/parking/active/${bannerSession.id}`)}
+            />
+          </Reveal>
         ) : null}
 
-        {!reportLocationPicking && !reportStep && !selectedReport && __DEV__ ? (
-          <View style={{ alignItems: 'flex-end' }}>
+        {!reportLocationPicking && !reportStep && !selectedReport && __DEV__ && process.env.EXPO_PUBLIC_SHOW_TEST_LOCATION === 'true' ? (
+          <Reveal offset={10} style={{ alignItems: 'flex-end' }}>
             <TestLocationControl
               enabled={testLocationMode}
               hasLocation={Boolean(testLocation)}
               onToggle={toggleTestLocation}
             />
-          </View>
+          </Reveal>
         ) : null}
 
         {reportLocationPicking ? (
-          <RoadReportLocationPanel onCancel={cancelReport} onContinue={() => { setReportLocationPicking(false); setReportStep('details'); }} />
+          <Reveal key="rp-location" offset={12}>
+            <RoadReportLocationPanel onCancel={cancelReport} onContinue={() => { setReportLocationPicking(false); setReportStep('details'); }} />
+          </Reveal>
         ) : !reportStep && !selectedReport && routeTarget ? (
+          <Reveal key="rp-route" offset={12}>
           <CompactRoutePanel
             destination={routeTarget}
             route={displayedRoute}
-            loading={routeLoading}
+            loading={activeRouteNeedsPlan ? false : routeLoading}
+            needsNotice={routeNeedsNotice}
+            routeNeedsComparison={routeNeedsComparison}
             detailsExpanded={routeDetailsExpanded}
             onDetailsExpandedChange={setRouteDetailsExpanded}
             onClose={closeRoute}
@@ -724,11 +1280,17 @@ function AccountMapScreen() {
             onOpenDestination={routeTarget.type === 'ev_station' ? () => {
               useMapLayersStore.getState().setPrimaryCategory('ev_charging');
               selectEvStation(routeTarget.station);
+            } : routeTarget.type === 'car_service' ? () => {
+              useMapLayersStore.getState().setPrimaryCategory('car_services');
+              carServices.select(routeTarget.service);
+            } : routeTarget.type === 'tourism_place' ? () => {
+              useMapLayersStore.getState().setPrimaryCategory('tourism_places');
+              tourismPlaces.select(routeTarget.place);
             } : undefined}
             startDisabled={routeZone?.parkingAllowed === false}
             impacts={activeRouteAssessment?.impacts}
             suggestedAlternative={routeAssessment?.recommended}
-            originalDurationSeconds={route?.durationSeconds}
+            originalDurationSeconds={activeRouteNeedsPlan ? undefined : route?.durationSeconds}
             usingAlternative={selectedRouteId !== 'current'}
             alternativeDismissed={alternativeDismissed}
             onSelectImpact={(impact) => openRouteReport(impact.report)}
@@ -743,19 +1305,90 @@ function AccountMapScreen() {
               setSelectedRouteId('current');
               setAlternativeDismissed(true);
             }}
+            onShowShortestRoute={() => {
+              setRouteNeedsDisplayMode('shortest');
+              setSelectedRouteId('current');
+              setAlternativeDismissed(true);
+            }}
+            onShowNeedAwareRoute={() => {
+              setRouteNeedsDisplayMode('needs');
+              setSelectedRouteId('current');
+              setAlternativeDismissed(false);
+            }}
             showNoAlternative={Boolean(route?.source === 'osrm' && activeRouteAssessment?.impacts.length && !routeAssessment?.recommended && selectedRouteId === 'current')}
           />
+          </Reveal>
+        ) : !reportStep && !selectedReport && selectedDestination && primaryMapCategory === 'parking' ? (
+          <Reveal key="rp-destination" offset={12}>
+          <DestinationParkingPanel
+            destinationName={selectedDestination.name}
+            recommendations={destinationRecommendations}
+            tripNeedsExpanded={tripNeedsExpanded}
+            tripNeedsAppliedText={tripNeedsAppliedText}
+            tripNeedsMode={tripNeedsMode}
+            tripNeedCategories={allTripNeedCategories}
+            tripNeedsNoMatches={tripNeedsNoMatches}
+            tripNeedsLoading={tripNeedsLoading}
+            tripNeedsError={tripNeedsError}
+            routeNeedsPlan={routeNeedsPlan}
+            routeNeedsLoading={routeNeedsLoading}
+            routeNeedsError={routeNeedsError}
+            onTripNeedsExpandedChange={setTripNeedsExpanded}
+            onApplyTripNeeds={applyTripNeeds}
+            onClearTripNeeds={clearTripNeeds}
+            onRouteWithNeeds={() => void startRouteWithNeeds()}
+            onBestParkingForNeeds={showBestParkingForNeeds}
+            onSelect={(item) => void startRoute(parkingDestination(item.zone))}
+          />
+          </Reveal>
         ) : !reportStep && !selectedReport && primaryMapCategory === 'parking' ? (
+          <Reveal key="rp-nearby" offset={12}>
           <NearbyParkingPanel
             zones={nearbyZones}
+            loading={zonesPending}
+            error={zonesError}
+            onRetry={() => void refetchZones()}
             expanded={nearbyExpanded}
             onExpandedChange={setNearbyExpanded}
             onSelectZone={focusZone}
           />
+          </Reveal>
         ) : null}
         {evActive && !reportStep && !reportLocationPicking && !selectedReport && !ev.selectedStationId ? (
+          <Reveal offset={12}>
           <EvMapStatus loading={ev.loading} error={ev.error} count={ev.stations.length} truncated={ev.truncated} filters={ev.filters}
-            retry={ev.retry} onFilters={() => setEvFiltersOpen(true)} compact={Boolean(routeTarget)} />
+            stations={ev.stations} retry={ev.retry} onFilters={() => setEvFiltersOpen(true)} onSelectStation={focusEvStation} compact={Boolean(routeTarget)} />
+          </Reveal>
+        ) : null}
+        {carServicesActive && !reportStep && !reportLocationPicking && !selectedReport && !carServices.selectedServiceId ? (
+          <Reveal offset={12}>
+          <CarServiceMapStatus
+            loading={carServices.loading}
+            error={carServices.error}
+            errorMessage={carServices.errorMessage}
+            count={carServices.services.length}
+            services={carServices.services}
+            truncated={carServices.truncated}
+            category={carServiceCategory}
+            retry={carServices.retry}
+            compact={Boolean(routeTarget)}
+          />
+          </Reveal>
+        ) : null}
+        {tourismPlacesActive && !reportStep && !reportLocationPicking && !selectedReport && !tourismPlaces.selectedPlaceId ? (
+          <Reveal offset={12}>
+          <TourismPlaceMapStatus
+            loading={tourismPlaces.loading}
+            error={tourismPlaces.error}
+            errorMessage={tourismPlaces.errorMessage}
+            count={tourismPlaces.places.length}
+            places={tourismPlaces.places}
+            truncated={tourismPlaces.truncated}
+            categories={tourismPlaceCategories}
+            retry={tourismPlaces.retry}
+            compact={Boolean(routeTarget)}
+          />
+          </Reveal>
         ) : null}
       </View>
 
@@ -833,6 +1466,10 @@ function AccountMapScreen() {
       <MapLayersSheet visible={layersSheetOpen} onClose={() => setLayersSheetOpen(false)} />
       <EvStationDetailsSheet key={ev.selectedStationId ?? 'closed-ev'} station={evActive ? ev.selectedStation : undefined}
         onClose={() => ev.select(undefined)} onRoute={(station) => void startRoute(evDestination(station))} />
+      <CarServiceDetailsSheet key={carServices.selectedServiceId ?? 'closed-car-service'} service={carServicesActive ? carServices.selectedService : undefined}
+        onClose={() => carServices.select(undefined)} onRoute={(service) => void startRoute(carServiceDestination(service))} />
+      <TourismPlaceDetailsSheet key={tourismPlaces.selectedPlaceId ?? 'closed-tourism-place'} place={tourismPlacesActive ? tourismPlaces.selectedPlace : undefined}
+        onClose={() => tourismPlaces.select(undefined)} onRoute={(place) => void startRoute(tourismPlaceDestination(place))} />
       <EvFiltersSheet visible={evActive && evFiltersOpen} onClose={() => setEvFiltersOpen(false)} />
     </View>
   );

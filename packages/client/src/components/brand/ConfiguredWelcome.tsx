@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Image, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
+import { BellRing, MapPin, Wallet } from 'lucide-react-native';
 import { AppButton, AppText } from '../ui/index';
 import { LogoMark } from './Logo';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -33,6 +34,15 @@ export function ConfiguredWelcome({ config, locale, onAction }: { config: AppCon
         if (section.type === 'action') return <AppButton key={section.id} label={section.label[locale]} variant="secondary" onPress={onAction ? () => onAction(section.path === '/(onboarding)/phone' ? '/(onboarding)/email' : section.path) : undefined} />;
         return <View key={section.id} style={{ padding: spacing.lg, backgroundColor: colors.surface, borderRadius: radius.lg }}><AppText variant={section.type === 'title' ? 'title' : 'body'} style={{ textAlign: locale === 'ar' ? 'right' : 'left', writingDirection: direction }}>{section.text[locale]}</AppText></View>;
       })}
+    </View>
+    <View style={{ gap: spacing.sm }}>
+      {[{ Icon: MapPin, key: 'onboarding.feature1' }, { Icon: Wallet, key: 'onboarding.feature2' }, { Icon: BellRing, key: 'onboarding.feature3' }].map(({ Icon, key }, index) => (
+        <View key={key} style={{ flexDirection: locale === 'ar' ? 'row-reverse' : 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth * 2, borderColor: colors.border }}>
+          <View style={{ width: 32, height: 32, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.brandSoft }}><Icon size={16} color={colors.brand} strokeWidth={2.2} /></View>
+          <AppText variant="title" style={{ flex: 1, writingDirection: direction }}>{translate(locale, key as 'onboarding.feature1' | 'onboarding.feature2' | 'onboarding.feature3')}</AppText>
+          <AppText variant="caption" color="textTertiary" numeric>{String(index + 1).padStart(2, '0')}</AppText>
+        </View>
+      ))}
     </View>
     <View style={{ gap: spacing.md }}>
       <AppButton label={translate(locale, 'onboarding.getStarted')} onPress={onAction ? () => onAction('/(onboarding)/name') : undefined} testID="welcome-get-started" />

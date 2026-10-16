@@ -1,5 +1,7 @@
 import type { Services } from '@parkflow/contracts/services';
 import { httpEvStationService } from './http/evStationService';
+import { httpCarServiceService } from './http/carServiceService';
+import { httpTourismPlaceService } from './http/tourismPlaceService';
 import { httpAuthService } from './http/authService';
 import { httpVehicleService } from './http/vehicleService';
 import { httpParkingService } from './http/parkingService';
@@ -14,9 +16,14 @@ import { httpRoutingService } from './http/routingService';
 import { httpTrustService } from './http/trustService';
 import { httpOperatorService } from './http/operatorService';
 import { httpAdminService } from './http/adminService';
+import { httpSharingService } from './http/sharingService';
+import { httpGateService } from './http/gateService';
+import { httpEmergencyService } from './http/emergencyService';
 
 export const services: Services = {
   evStations: httpEvStationService,
+  carServices: httpCarServiceService,
+  tourismPlaces: httpTourismPlaceService,
   auth: httpAuthService,
   vehicles: httpVehicleService,
   parking: httpParkingService,
@@ -31,6 +38,9 @@ export const services: Services = {
   trust: httpTrustService,
   operator: httpOperatorService,
   admin: httpAdminService,
+  sharing: httpSharingService,
+  gates: httpGateService,
+  emergency: httpEmergencyService,
 };
 export * from '@parkflow/contracts/services';
 export { DEFAULT_REGION, LANDMARKS, RAMALLAH_CENTER } from '../data/mapDefaults';

@@ -9,7 +9,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const calls = [], routes = [], persisted = new Map();
 const Focus = React.createContext(true);
 const router = { push: route => routes.push(['push', route]), replace: route => routes.push(['replace', route]) };
-const ui = Object.fromEntries(['AppButton', 'AppHeader', 'AppText', 'InlineNotice', 'Reveal', 'Screen', 'TextField'].map(name => [name, props => React.createElement(name, props, props.children)]));
+const ui = Object.fromEntries(['AppButton', 'AppHeader', 'AppText', 'OnboardingStepper', 'InlineNotice', 'Reveal', 'Screen', 'TextField'].map(name => [name, props => React.createElement(name, props, props.children)]));
 const services = {};
 const stubs = {
   'react-native': { View: props => React.createElement('View', props, props.children) },
@@ -27,11 +27,15 @@ const stubs = {
   '@parkflow/client/utils/haptics': { haptics: { success() {}, error() {} } },
   '@parkflow/client/services': { services },
   '@parkflow/client/store/reservationRouteStore': { clearReservationRouteForAccountChange: async () => () => {} },
-  '@parkflow/client/services/storage': { secureStorage: {
+  '@parkflow/client/services/storage': { appStorage: {
     getItem: async key => persisted.get(key) ?? null,
     setItem: async (key, value) => { persisted.set(key, value); },
     removeItem: async key => { persisted.delete(key); },
-  }, STORAGE_KEYS: { authSession: 'auth' } },
+  }, secureStorage: {
+    getItem: async key => persisted.get(key) ?? null,
+    setItem: async (key, value) => { persisted.set(key, value); },
+    removeItem: async key => { persisted.delete(key); },
+  }, STORAGE_KEYS: { authSession: 'auth', preferences: 'preferences' } },
   '@parkflow/client/services/http/apiClient': { api: (url, options) => new Promise((resolve, reject) => calls.push({ url, options, resolve, reject })) },
 };
 // Keep the real screen, service, stores and React Query; replace only native
@@ -44,6 +48,7 @@ const { usePhoneAuthStore } = load('@parkflow/client/store/phoneAuthStore');
 const { useEmailAuthStore } = load('packages/client/src/store/emailAuthStore.ts');
 const { useAuthStore } = load('@parkflow/client/store/authStore');
 const { authLanding } = load('@parkflow/client/utils/authFlow');
+const { usePreferencesStore } = load('@parkflow/client/store/preferencesStore');
 let renderer, client;
 const emailConfig = { developmentLoginEnabled: false, developmentEmailLoginEnabled: true, loginMethod: 'email' };
 const phoneConfig = { developmentLoginEnabled: false, developmentEmailLoginEnabled: false, loginMethod: 'phone' };
@@ -68,6 +73,7 @@ const result = (overrides = {}) => ({
 });
 beforeEach(() => {
   calls.length = 0; routes.length = 0; persisted.clear();
+  usePreferencesStore.setState({ locale: 'en' });
   usePhoneAuthStore.getState().begin('login');
   useEmailAuthStore.getState().reset();
   useAuthStore.setState({ session: undefined, user: undefined, hydrated: true });

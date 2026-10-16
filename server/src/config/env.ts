@@ -11,17 +11,21 @@ export const env = z.object({
  TWILIO_VERIFY_SERVICE_SID:z.preprocess(v=>v===''?undefined:v,z.string().regex(/^VA[0-9a-fA-F]{32}$/).optional()),
  PROFILE_ENCRYPTION_KEY:z.preprocess(v=>v===''?undefined:v,z.string().regex(/^[a-fA-F0-9]{64}$/).optional()),
  DATABASE_URL:z.string().min(1), REDIS_URL:z.string().url(),
+ GEMINI_API_KEY:optional, GEMINI_MODEL:z.string().regex(/^[a-zA-Z0-9._-]+$/).default('gemini-2.5-flash'),
  JWT_ACCESS_SECRET:z.string().min(32), JWT_REFRESH_SECRET:z.string().min(32),
  ACCESS_TOKEN_TTL:z.coerce.number().int().positive().default(900), REFRESH_TOKEN_TTL:z.coerce.number().int().positive().default(2592000),
  CORS_ORIGINS:z.string().default('http://localhost:8081,http://127.0.0.1:8081'), OSRM_BASE_URL:z.string().url().default('https://router.project-osrm.org'),
  WEB_CUSTOMER_ORIGINS:z.string().default('http://localhost:8081,http://127.0.0.1:8081,http://localhost:19006,http://127.0.0.1:19006'),
  WEB_MANAGEMENT_ORIGINS:z.string().default('http://localhost:8082,http://127.0.0.1:8082'),
+ GOOGLE_ROUTES_API_KEY:optional,
  EMAIL_PROVIDER:z.enum(['smtp']).default('smtp'), EMAIL_FROM:z.email(),
  SMTP_HOST:z.string().min(1), SMTP_PORT:z.coerce.number().int().positive().default(465),
  SMTP_SECURE:z.enum(['true','false']).default('true').transform(v=>v==='true'), SMTP_USER:z.string().min(1), SMTP_PASSWORD:optional,
  PAYMENT_PROVIDER:z.enum(['development','http']).default('development'), PAYMENT_API_URL:optional, PAYMENT_API_KEY:optional,
  PAYMENT_WEBHOOK_SECRET:z.string().min(32),
  S3_ENDPOINT:z.string().url(), S3_REGION:z.string().default('us-east-1'), S3_BUCKET:z.string(), S3_ACCESS_KEY:z.string(), S3_SECRET_KEY:z.string(),
+ // Leave empty to keep crash calling off. Digits with an optional leading +.
+ EMERGENCY_CALL_NUMBER:z.string().trim().regex(/^\+?[0-9]{2,15}$/).optional().or(z.literal('')), EMERGENCY_COUNTDOWN_SECONDS:z.coerce.number().int().min(5).max(60).default(15),
  FIREBASE_PROJECT_ID:optional,FIREBASE_CLIENT_EMAIL:optional,FIREBASE_PRIVATE_KEY:optional,EXPO_PUSH_ACCESS_TOKEN:optional,
 }).parse(process.env);
 if(env.NODE_ENV==='production'&&env.DEV_SKIP_PHONE_OTP) {

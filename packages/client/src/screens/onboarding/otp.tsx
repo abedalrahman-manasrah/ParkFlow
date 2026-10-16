@@ -3,7 +3,7 @@ import { useCallback, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Redirect, useFocusEffect, useRouter } from 'expo-router';
 import { useMutation } from '@tanstack/react-query';
-import { AppButton, AppHeader, AppText, InlineNotice, OtpInput, PressableScale, Reveal, Screen } from '../../components/ui/index';
+import { AppButton, AppHeader, AppText, InlineNotice, OnboardingStepper, OtpInput, PressableScale, Reveal, Screen } from '../../components/ui/index';
 import { spacing } from '@parkflow/design/spacing';
 import { useLocale } from '../../hooks/useLocale';
 import { useDeadline } from '../../hooks/useDeadline';
@@ -94,6 +94,7 @@ function PhoneOtpScreen() {
   return (
     <Screen keyboardAvoiding>
       <AppHeader />
+      <OnboardingStepper current={purpose === 'register' ? 2 : 1} steps={purpose === 'register' ? undefined : ['email', 'verify']} />
       <Reveal style={{ gap: spacing.sm }}>
         <AppText variant="h1">{t('onboarding.otpPhoneTitle')}</AppText>
         <AppText variant="bodyLg" color="textSecondary">{t(challenge.delivery === 'sms' ? 'onboarding.otpPhoneSubtitle' : 'onboarding.otpDevSubtitle', { phone: challenge.phone })}</AppText>

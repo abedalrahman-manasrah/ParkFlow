@@ -21,17 +21,18 @@ function routeHarness() {
     setItem: async (key, value) => { persisted.set(key, value); },
     removeItem: async key => { persisted.delete(key); },
   };
-  const ui = Object.fromEntries(['AppButton', 'AppHeader', 'AppText', 'Card', 'Reveal', 'Screen', 'TextField'].map(name => [name, native(name)]));
+  const ui = Object.fromEntries(['AppButton', 'AppHeader', 'AppText', 'OnboardingStepper', 'Card', 'Reveal', 'Screen', 'TextField'].map(name => [name, native(name)]));
   // Keep welcome/name components, locale/theme hooks and stores real. These
   // boundaries replace native rendering, navigation and device/network I/O.
   const load = createClientLoader({ stubs: {
     'react-native': {
       View: native('View'), Text: native('Text'), Image: native('Image'),
+      StyleSheet: { hairlineWidth: 1 },
       Platform: { OS: 'web', select: values => values.web ?? values.default },
       I18nManager: { allowRTL() {} }, useColorScheme: () => 'light',
     },
     'react-native-svg': { __esModule: true, default: native('Svg'), ...Object.fromEntries(['Defs', 'LinearGradient', 'Path', 'Rect', 'Stop', 'Circle', 'G'].map(name => [name, native(name)])) },
-    'lucide-react-native': { ShieldCheck: native('ShieldCheck') },
+    'lucide-react-native': Object.fromEntries(['ShieldCheck', 'MapPin', 'Wallet', 'BellRing'].map(name => [name, native(name)])),
     'expo-status-bar': { StatusBar: native('StatusBar') },
     'expo-router': {
       useRouter: () => ({ push: route => routes.push(['push', route]), replace: route => routes.push(['replace', route]) }),
@@ -41,6 +42,10 @@ function routeHarness() {
     '@parkflow/client/services/storage': { appStorage: storage, secureStorage: storage, STORAGE_KEYS: { preferences: 'preferences', authSession: 'auth' } },
     '@parkflow/client/services/http/apiClient': { api: async () => { throw new Error('Routes do not request auth'); }, query: () => '' },
   } });
+  const preferences = load('@parkflow/client/store/preferencesStore').usePreferencesStore;
+  // These assertions exercise the published English labels; locale selection
+  // is explicit now that new installations default to Arabic.
+  preferences.getState().setLocale('en');
   const phone = load('@parkflow/client/store/phoneAuthStore').usePhoneAuthStore;
   const email = load('packages/client/src/store/emailAuthStore.ts').useEmailAuthStore;
   const auth = load('@parkflow/client/store/authStore').useAuthStore;
@@ -54,6 +59,7 @@ function routeHarness() {
     routes, phone, email, auth, config,
     reset() {
       routes.length = 0;
+      preferences.getState().setLocale('en');
       phone.getState().begin('login');
       email.getState().reset();
       auth.setState({ user: undefined, session: undefined, hydrated: true });

@@ -15,9 +15,9 @@ export default function AboutScreen() {
   const { t, row } = useLocale();
 
   const roadmap = [
-    { Icon: Building2, label: 'Private garages with automatic entry and exit' },
-    { Icon: Camera, label: 'ANPR enforcement and live availability from sensors' },
-    { Icon: ShieldCheck, label: 'Resident and disabled parking permits' },
+    { Icon: Building2, label: t('about.roadmapGarages') },
+    { Icon: Camera, label: t('about.roadmapAnpr') },
+    { Icon: ShieldCheck, label: t('about.roadmapPermits') },
   ];
 
   return (
@@ -38,7 +38,10 @@ export default function AboutScreen() {
             value={Constants.expoConfig?.version ?? '1.0.0'}
           />
           <Divider />
-          <DetailRow label="Build" value={__DEV__ ? 'Development' : 'Production'} />
+          <DetailRow
+            label={t('about.build')}
+            value={__DEV__ ? t('about.buildDevelopment') : t('about.buildProduction')}
+          />
         </Card>
 
         <Card padding="lg" style={{ gap: spacing.lg }}>

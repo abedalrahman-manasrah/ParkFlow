@@ -87,3 +87,6 @@ dist-platform-check/
 TWILIO_DELIVERY_SUPPORT.txt
 twilio-ticket-*.jpg
 twilio-ticket-*.png
+
+# Keep private database backups locally, outside versioned application changes.
+server/backups/

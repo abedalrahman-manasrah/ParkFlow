@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Hash, LocateFixed, QrCode, ScanLine } from 'lucide-react-native';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-import { AppText, PressableScale } from '@parkflow/client/components/ui';
+import { AppText, PressableScale, Reveal } from '@parkflow/client/components/ui';
 import { useLocale } from '@parkflow/client/hooks/useLocale';
 import { useTheme } from '@parkflow/client/theme/ThemeProvider';
 import { radius } from '@parkflow/design/radius';
@@ -67,40 +67,44 @@ export function MapControlRail({
   return (
     <View style={{ alignItems: isRTL ? 'flex-start' : 'flex-end', gap: spacing.sm }} pointerEvents="box-none">
       {locationMessage ? (
-        <View
-          style={[
-            {
-              maxWidth: 210,
-              paddingVertical: spacing.sm,
-              paddingHorizontal: spacing.md,
-              borderRadius: radius.md,
-              backgroundColor: colors.surface,
-            },
-            shadow.sm,
-          ]}
-        >
-          <AppText variant="caption" color="textSecondary">
-            {locationMessage}
-          </AppText>
-        </View>
+        <Reveal offset={8}>
+          <View
+            style={[
+              {
+                maxWidth: 210,
+                paddingVertical: spacing.sm,
+                paddingHorizontal: spacing.md,
+                borderRadius: radius.md,
+                backgroundColor: colors.surface,
+              },
+              shadow.sm,
+            ]}
+          >
+            <AppText variant="caption" color="textSecondary">
+              {locationMessage}
+            </AppText>
+          </View>
+        </Reveal>
       ) : null}
 
       {entryOpen ? (
-        <View
-          style={[
-            {
-              width: 164,
-              overflow: 'hidden',
-              borderRadius: radius.lg,
-              backgroundColor: colors.surface,
-            },
-            shadow.md,
-          ]}
-        >
-          {action(t('map.scanQr'), <QrCode size={17} color={colors.brand} strokeWidth={2.3} />, onScanQr)}
-          <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.divider }} />
-          {action(t('map.enterCode'), <Hash size={17} color={colors.brand} strokeWidth={2.3} />, onEnterCode)}
-        </View>
+        <Reveal offset={8}>
+          <View
+            style={[
+              {
+                width: 164,
+                overflow: 'hidden',
+                borderRadius: radius.lg,
+                backgroundColor: colors.surface,
+              },
+              shadow.md,
+            ]}
+          >
+            {action(t('map.scanQr'), <QrCode size={17} color={colors.brand} strokeWidth={2.3} />, onScanQr)}
+            <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.divider }} />
+            {action(t('map.enterCode'), <Hash size={17} color={colors.brand} strokeWidth={2.3} />, onEnterCode)}
+          </View>
+        </Reveal>
       ) : null}
 
       <MapLayersButton enabledCount={enabledLayerCount} onPress={onOpenLayers} />

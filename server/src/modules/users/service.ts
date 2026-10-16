@@ -10,7 +10,7 @@ export function userView(user: User) {
   return {...publicFields,nationalIdMasked:nationalIdLast4 ? `••••${nationalIdLast4}` : null};
 }
 
-export interface ProfileInput { fullName?: string; locale?: 'en'|'ar'; email?: string|null; nationalId?: string|null }
+export interface ProfileInput { fullName?: string; locale?: 'en'|'ar'; gender?: 'female'|'male'; email?: string|null; nationalId?: string|null }
 
 export async function getUser(id: string) { return userView(requireValue(await db.user.findUnique({where:{id}}))); }
 
@@ -31,6 +31,7 @@ async function saveProfile(id: string, input: ProfileInput, complete: boolean) {
       data.lastName = input.fullName.split(' ').slice(1).join(' ');
     }
     if (input.locale !== undefined) data.locale = input.locale;
+    if (input.gender !== undefined) data.gender = input.gender;
     if (input.email !== undefined && input.email !== existing.email) {
       assert(!existing.emailVerifiedAt || env.AUTH_LOGIN_METHOD !== 'email', 'EMAIL_CHANGE_REQUIRES_VERIFICATION', 'Changing your verified sign-in email requires a new verification. Keep your current email for now.', 409);
       assert(existing.phone || input.email, 'EMAIL_REQUIRED', 'Keep an email address for this development account', 400);

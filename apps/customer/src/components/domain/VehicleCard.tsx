@@ -8,6 +8,7 @@ import { spacing } from '@parkflow/design/spacing';
 import { radius } from '@parkflow/design/radius';
 import { useLocale } from '@parkflow/client/hooks/useLocale';
 import type { UserVehicleView, VehicleType } from '@parkflow/contracts';
+import { isPlateOnlyName } from '@parkflow/client/utils/plate';
 
 const TYPE_ICONS: Record<VehicleType, typeof Car> = {
   private: Car,
@@ -35,14 +36,18 @@ export function VehicleCard({
   const { t, row, isRTL } = useLocale();
 
   const Icon = TYPE_ICONS[vehicle.type];
+  // A vehicle without a nickname falls back to its plate, which the badge
+  // below already shows — the type reads better than the same number twice.
+  const sameAsPlate = isPlateOnlyName(vehicle.displayName, vehicle.plateNumber);
+  const title = sameAsPlate ? t(`vehicle.type.${vehicle.type}`) : vehicle.displayName;
+  const hasBadges = vehicle.isDefault || isParked || violationCount > 0;
   const Chevron = isRTL ? ChevronLeft : ChevronRight;
 
   return (
     <Card
       onPress={onPress}
       padding="lg"
-      accessibilityLabel={`${vehicle.displayName}, ${vehicle.plateNumber}`}
-      style={{ gap: spacing.md }}
+      accessibilityLabel={`${title}, ${vehicle.plateNumber}`}
     >
       <View style={{ flexDirection: row, alignItems: 'center', gap: spacing.md }}>
         <View
@@ -60,29 +65,28 @@ export function VehicleCard({
 
         <View style={{ flex: 1, gap: 6 }}>
           <AppText variant="titleLg" numberOfLines={1}>
-            {vehicle.displayName}
+            {title}
           </AppText>
           <PlateBadge plateNumber={vehicle.plateNumber} size="sm" />
+          {hasBadges ? (
+            <View style={{ flexDirection: row, gap: spacing.xs, flexWrap: 'wrap', marginTop: 2 }}>
+              {vehicle.isDefault ? (
+                <StatusBadge label={t('common.default')} tone="neutral" size="sm" showDot={false} />
+              ) : null}
+              {isParked ? <StatusBadge label={t('vehicle.parkedNow')} tone="success" size="sm" /> : null}
+              {violationCount > 0 ? (
+                <StatusBadge
+                  label={`${violationCount} ${t('violation.unpaid')}`}
+                  tone="danger"
+                  size="sm"
+                />
+              ) : null}
+            </View>
+          ) : null}
         </View>
 
         {onPress ? <Chevron size={20} color={colors.textTertiary} strokeWidth={2.2} /> : null}
       </View>
-
-      {vehicle.isDefault || isParked || violationCount > 0 ? (
-        <View style={{ flexDirection: row, gap: spacing.sm, flexWrap: 'wrap' }}>
-          {vehicle.isDefault ? (
-            <StatusBadge label={t('common.default')} tone="neutral" size="sm" showDot={false} />
-          ) : null}
-          {isParked ? <StatusBadge label={t('vehicle.parkedNow')} tone="success" size="sm" /> : null}
-          {violationCount > 0 ? (
-            <StatusBadge
-              label={`${violationCount} ${t('violation.unpaid')}`}
-              tone="danger"
-              size="sm"
-            />
-          ) : null}
-        </View>
-      ) : null}
     </Card>
   );
 }
